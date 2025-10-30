@@ -1,0 +1,16 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Home{% endblock title %}
+
+{% block content %}
+    <div class="home">
+        {% for cafe in cafes %}
+            <div class="cafes-in">
+                <div class="cafe-name">
+                    <a href="{% url 'main:workers' cafe.id %}" >{{ cafe.name }}</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock content %}

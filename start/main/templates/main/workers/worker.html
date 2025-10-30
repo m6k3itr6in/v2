@@ -1,0 +1,16 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Workers{% endblock title %}
+
+{% block content %}
+    <div class="home">
+        {% for worker in workers %}
+            <div class="workers-in">
+                <div class="worker-name">
+                    <a href="">{{ worker.name }}</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock content %}

@@ -4,13 +4,18 @@
 {% block title %}Workers{% endblock title %}
 
 {% block content %}
+    {% now "Y" as now_year %}
+    {% now "m" as now_month %}
     <div class="home">
         {% for worker in workers %}
             <div class="workers-in">
                 <div class="worker-name">
-                    <a href="">{{ worker.name }}</a>
+                    {{ worker.name }}
                 </div>
             </div>
         {% endfor %}
+        <div class="shift-shop">
+            <a href="{% url 'main:schedule' workers.first.coffee_shop.id now_year now_month %}">Расписание этой точки</a>
+        </div>
     </div>
 {% endblock content %}

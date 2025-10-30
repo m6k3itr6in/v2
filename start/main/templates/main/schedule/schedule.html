@@ -1,0 +1,55 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Расписание{% endblock title %}
+
+{% block content %}
+<h2>График: {{ shop.name }} — {{ month }} / {{ year }}</h2>
+{% comment %} <div class="mb-3">
+    <a href="{% url 'schedule_month' shop.id year=(month == 1 and year-1 or year) month=(month == 1 and 12 or month-1) %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
+    <a href="{% url 'schedule_month' shop.id year=(month == 12 and year+1 or year) month=(month == 12 and 1 or month+1) %}" class="btn btn-sm btn-outline-primary">Следующий &gt;</a>
+</div> {% endcomment %}
+<table border="1" class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Работник</th>
+            {% for day in days %}
+                <th>{{ day.day }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for worker in workers %}
+            <tr>
+                <td>{{ worker.name }}</td>
+                {% for day in days %}
+                    <th class="schedule-cell" id="scheduleCell">
+
+                    </th>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="modal-window" id="modalWindow">
+    <div class="modal-in">
+        <div class="modal-buttons">
+            <button class="modal-btn d-flex">7.30</button>
+            <button class="modal-btn d-flex">8.00</button>
+            <button class="modal-btn d-flex">9.30</button>
+            <button class="modal-btn d-flex">10:00</button>
+            <button class="modal-btn d-flex">+</button>
+            {% for cafe in all_shops %}
+                <button class="modal-btn-short-codes d-flex">{{ cafe.short_code }}</button>
+            {% endfor %}
+            <button class="modal-btn d-flex">Выходной</button>
+            <button class="modal-btn-back d-flex">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    
+</script>
+{% endblock content %}

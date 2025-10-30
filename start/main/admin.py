@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CoffeeShop, Worker
+from .models import CoffeeShop, Worker, Shift
 
 # Register your models here.
 @admin.register(CoffeeShop)

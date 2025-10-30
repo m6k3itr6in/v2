@@ -5,5 +5,6 @@ app_name = 'main'
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('worker/<id>/', views.get_workers, name='workers'),
+    path('worker/<int:id>/', views.get_workers, name='workers'),
+    path('schedule/<int:coffee_shop_id>/<int:year>/<int:month>/', views.schedule_view, name='schedule'),
 ]

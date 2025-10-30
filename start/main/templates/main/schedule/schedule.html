@@ -23,9 +23,7 @@
             <tr>
                 <td>{{ worker.name }}</td>
                 {% for day in days %}
-                    <th class="schedule-cell" id="scheduleCell">
-
-                    </th>
+                    <td class="schedule-cell"></td>
                 {% endfor %}
             </tr>
         {% endfor %}
@@ -41,7 +39,9 @@
             <button class="modal-btn d-flex">10:00</button>
             <button class="modal-btn d-flex">+</button>
             {% for cafe in all_shops %}
-                <button class="modal-btn-short-codes d-flex">{{ cafe.short_code }}</button>
+                {% if cafe.id != shop.id %}
+                    <button class="modal-btn-short-codes d-flex">{{ cafe.short_code }}</button>
+                {% endif %}
             {% endfor %}
             <button class="modal-btn d-flex">Выходной</button>
             <button class="modal-btn-back d-flex">Отмена</button>
@@ -50,6 +50,42 @@
 </div>
 
 <script>
-    
+    document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById('modalWindow');
+        let currentCell = null;
+
+        document.querySelectorAll('.schedule-cell').forEach(cell => {
+            cell.addEventListener('click', function () {
+                currentCell = this;
+                modal.style.display = 'flex';
+            });
+        });
+
+        modal.addEventListener('click', function (event) {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+
+            const text = btn.textContent.trim();
+
+            if (text === 'Отмена') {
+                modal.style.display = 'none';
+                return;
+            }
+
+            if (text === 'Выходной') {
+                currentCell.textContent = '';
+            } else {
+                currentCell.textContent = text;
+            }
+
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
 </script>
 {% endblock content %}

@@ -5,11 +5,27 @@
 
 {% block content %}
 <h2>График: {{ shop.name }} — {{ month }} / {{ year }}</h2>
-{% comment %} <div class="mb-3">
-    <a href="{% url 'schedule_month' shop.id year=(month == 1 and year-1 or year) month=(month == 1 and 12 or month-1) %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
-    <a href="{% url 'schedule_month' shop.id year=(month == 12 and year+1 or year) month=(month == 12 and 1 or month+1) %}" class="btn btn-sm btn-outline-primary">Следующий &gt;</a>
-</div> {% endcomment %}
-<table border="1" class="table table-bordered">
+<div class="mb-3" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+    <a href="{% url 'main:schedule' shop.id prev_year prev_month %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
+    <a href="{% url 'main:schedule' shop.id next_year next_month %}" class="btn btn-sm btn-outline-primary">Следующий &gt;</a>
+    <button id="goTodayBtn" class="btn btn-sm btn-secondary" type="button">Сегодня</button>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            const btn = document.getElementById('goTodayBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(){
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = now.getMonth() + 1; // 1..12
+                const tpl = "{% url 'main:schedule' shop.id 9999 99 %}";
+                const url = tpl.replace('/9999/99/', `/${y}/${m}/`);
+                window.location.href = url;
+            });
+        });
+    </script>
+</div>
+<table border="1" class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}">
     <thead>
         <tr>
             <th>Работник</th>
@@ -19,23 +35,34 @@
         </tr>
     </thead>
     <tbody>
-        {% for worker in workers %}
+        {% for row in schedule_rows %}
             <tr>
-                <td>{{ worker.name }}</td>
-                {% for day in days %}
-                    <td class="schedule-cell"></td>
+                <td>{{ row.worker.name }}</td>
+                {% for cell in row.cells %}
+                    <td class="schedule-cell" data-worker-id="{{ row.worker.id }}" data-date="{{ cell.date|date:'Y-m-d' }}">
+                        {% if cell.shift %}
+                            {% if cell.shift.is_plus %}
+                                +
+                            {% elif cell.shift.another_shop %}
+                                {{ cell.shift.another_shop.short_code }}
+                            {% elif cell.shift.start_time %}
+                                {{ cell.shift.start_time|time:'H:i' }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
                 {% endfor %}
             </tr>
         {% endfor %}
     </tbody>
 </table>
 
+{% csrf_token %}
 <div class="modal-window" id="modalWindow">
     <div class="modal-in">
         <div class="modal-buttons">
-            <button class="modal-btn d-flex">7.30</button>
-            <button class="modal-btn d-flex">8.00</button>
-            <button class="modal-btn d-flex">9.30</button>
+            <button class="modal-btn d-flex">07:30</button>
+            <button class="modal-btn d-flex">08:00</button>
+            <button class="modal-btn d-flex">09:30</button>
             <button class="modal-btn d-flex">10:00</button>
             <button class="modal-btn d-flex">+</button>
             {% for cafe in all_shops %}
@@ -52,7 +79,45 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const modal = document.getElementById('modalWindow');
+        const tableEl = document.getElementById('scheduleTable');
         let currentCell = null;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function saveCellValue(cell, text) {
+            const url = "{% url 'main:update_shift' %}";
+            const payload = {
+                coffee_shop_id: tableEl.dataset.shopId,
+                worker_id: cell.dataset.workerId,
+                date: cell.dataset.date,
+                value: text
+            };
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) {
+                const msg = await resp.text();
+                console.error('Save error:', msg);
+            }
+        }
 
         document.querySelectorAll('.schedule-cell').forEach(cell => {
             cell.addEventListener('click', function () {
@@ -72,11 +137,22 @@
                 return;
             }
 
+            if (text === '+') {
+                if (currentCell) {
+                    currentCell.textContent = '+';
+                    saveCellValue(currentCell, '+').catch(console.error);
+                }
+                modal.style.display = 'none';
+                return;
+            }
+
             if (text === 'Выходной') {
                 currentCell.textContent = '';
             } else {
                 currentCell.textContent = text;
             }
+
+            saveCellValue(currentCell, currentCell.textContent.trim()).catch(console.error);
 
             modal.style.display = 'none';
         });

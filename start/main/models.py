@@ -26,5 +26,6 @@ class Shift(models.Model):
     worker = models.ForeignKey(Worker, on_delete=models.CASCADE)
     coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE)
     date = models.DateField()
-    start_time = models.TimeField()
+    start_time = models.TimeField(null=True, blank=True)
     another_shop = models.ForeignKey(CoffeeShop, null=True, blank=True, on_delete=models.SET_NULL, related_name='extra_shift')
+    is_plus = models.BooleanField(default=False)

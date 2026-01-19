@@ -15,7 +15,7 @@
             </div>
         {% endfor %}
         <div class="shift-shop">
-            <a href="{% url 'main:schedule' workers.first.coffee_shop.id now_year now_month %}">Расписание этой точки</a>
+            <a href="{% url 'main:schedule' shop.slug now_year now_month %}">Расписание этой точки</a>
         </div>
     </div>
 {% endblock content %}

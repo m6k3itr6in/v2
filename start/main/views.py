@@ -15,66 +15,99 @@ def index(request):
     cafes = CoffeeShop.objects.all()
     return render(request, 'main/index/index.html', {'cafes':cafes})
 
-def get_workers(request, id):
-    workers = Worker.objects.filter(coffee_shop_id=id)
-    return render(request, 'main/workers/worker.html', {'workers':workers})
+def get_workers(request, slug):
+    shop = get_object_or_404(CoffeeShop, slug=slug)
+    workers = Worker.objects.filter(coffee_shop=shop)
+    return render(request, 'main/workers/worker.html', {'workers':workers, 'shop':shop})
 
-def schedule_view(request, coffee_shop_id, year=None, month=None):
-    shop = get_object_or_404(CoffeeShop, id=coffee_shop_id)
+def get_month_days(year, month):
+    num_days = calendar.monthrange(year, month)[1]
+    return [date(year, month, d) for d in range(1, num_days + 1)]
+
+
+def get_active_workers(shop, year, month):
+    month_start = date(year, month, 1)
+    return Worker.objects.filter(
+        coffee_shop=shop
+    ).filter(
+        Q(fired_at__isnull=True) | Q(fired_at__gt=month_start)
+    ).distinct()
+
+
+def build_schedule_rows(workers, days, shifts_by_day_worker):
+    rows = []
+    for worker in workers:
+        cells = [
+            {'date': day, 'shift': shifts_by_day_worker.get((worker.id, day))}
+            for day in days
+        ]
+        rows.append({'worker': worker, 'cells': cells})
+    return rows
+
+
+def get_days_with_workers_count(days, shifts_by_day_worker, shop):
+    days_info = []
+    for day in days:
+        count = sum(1 for (worker_id, shift_date), shift in shifts_by_day_worker.items() 
+                   if shift_date == day and shift is not None and 
+                   (shift.another_shop is None or shift.another_shop == shop))
+        days_info.append({'date': day, 'workers_count': count})
+    return days_info
+
+
+def get_month_navigation(year, month):
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+    
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+    
+    return prev_year, prev_month, next_year, next_month
+
+
+def schedule_view(request, slug, year=None, month=None):
+    shop = get_object_or_404(CoffeeShop, slug=slug)
     today = timezone.now().date()
     year = int(year) if year else today.year
     month = int(month) if month else today.month
 
-    all_shops = CoffeeShop.objects.all()
-
-    num_days = calendar.monthrange(year, month)[1]
-    days = [date(year, month, d) for d in range(1, num_days+1)]
-    workers = Worker.objects.filter(coffee_shop=shop).filter(Q(fired_at__isnull=True) | Q(fired_at__gt=date(year, month, 1))).distinct()
-
+    days = get_month_days(year, month)
+    workers = get_active_workers(shop, year, month)
+    
     shifts = Shift.objects.filter(coffee_shop=shop, date__year=year, date__month=month)
-    shifts_by_day_worker = {(s.worker_id, s.date): s for s in shifts}
-
-    schedule = {}
-    for worker in workers:
-        schedule[worker] = []
-        for day in days:
-            shift = shifts_by_day_worker.get((worker.id, day))
-            schedule[worker].append(shift)
-
-    schedule_rows = []
-    for worker in workers:
-        cells = []
-        for idx, day in enumerate(days):
-            cells.append({'date': day, 'shift': schedule[worker][idx]})
-        schedule_rows.append({'worker': worker, 'cells': cells})
-
-    min_workers = shop.minimum_workers
-
-    # вычисления для навигации по месяцам
-    if month == 1:
-        prev_month = 12
-        prev_year = year - 1
-    else:
-        prev_month = month - 1
-        prev_year = year
-
-    if month == 12:
-        next_month = 1
-        next_year = year + 1
-    else:
-        next_month = month + 1
-        next_year = year
+    
+    shifts_from_other_shops = Shift.objects.filter(
+        another_shop=shop,
+        date__year=year,
+        date__month=month
+    )
+    
+    all_shifts = list(shifts) + list(shifts_from_other_shops)
+    shifts_by_day_worker = {(s.worker_id, s.date): s for s in all_shifts}
+    
+    workers_from_other_shops_ids = shifts_from_other_shops.values_list('worker_id', flat=True).distinct()
+    workers_from_other_shops = Worker.objects.filter(id__in=workers_from_other_shops_ids)
+    
+    all_workers = list(workers) + list(workers_from_other_shops)
+    
+    schedule_rows = build_schedule_rows(all_workers, days, shifts_by_day_worker)
+    days_info = get_days_with_workers_count(days, shifts_by_day_worker, shop)
+    prev_year, prev_month, next_year, next_month = get_month_navigation(year, month)
 
     return render(request, 'main/schedule/schedule.html', {
-        'shop':shop,
-        'days':days,
-        'workers':workers,
-        'schedule':schedule,
-        'schedule_rows':schedule_rows,
-        'min_workers':min_workers,
-        'year':year,
-        'month':month,
-        'all_shops':all_shops,
+        'shop': shop,
+        'days': days,
+        'days_info': days_info,
+        'workers': all_workers,
+        'schedule_rows': schedule_rows,
+        'min_workers': shop.minimum_workers,
+        'year': year,
+        'month': month,
+        'all_shops': CoffeeShop.objects.all(),
         'prev_year': prev_year,
         'prev_month': prev_month,
         'next_year': next_year,
@@ -86,80 +119,33 @@ def schedule_view(request, coffee_shop_id, year=None, month=None):
 @csrf_protect
 def update_shift(request):
     try:
-        payload = json.loads(request.body.decode('utf-8'))
-    except Exception:
-        return HttpResponseBadRequest('Invalid JSON')
+        data = json.loads(request.body)
+        worker = Worker.objects.get(id=data['worker_id'])
+        target_shop = CoffeeShop.objects.get(id=data['coffee_shop_id'])
+        day = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        value = (data.get('value') or '').strip()
+    except (KeyError, json.JSONDecodeError, Worker.DoesNotExist, CoffeeShop.DoesNotExist, ValueError):
+        return HttpResponseBadRequest('Invalid request')
 
-    worker_id = payload.get('worker_id')
-    coffee_shop_id = payload.get('coffee_shop_id')
-    date_str = payload.get('date')
-    value_text = (payload.get('value') or '').strip()
-
-    if not (worker_id and coffee_shop_id and date_str):
-        return HttpResponseBadRequest('Missing required fields')
-
-    try:
-        worker = Worker.objects.get(id=worker_id)
-        shop = CoffeeShop.objects.get(id=coffee_shop_id)
-        day = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except Exception:
-        return HttpResponseBadRequest('Invalid identifiers')
-
-    if value_text == '' or value_text.lower() in ('выходной', 'off', 'none'):
+    if not value or value.lower() in ('выходной', 'off', 'none'):
         Shift.objects.filter(worker=worker, date=day).delete()
-        return JsonResponse({'ok': True, 'action': 'deleted'})
+        return JsonResponse({'ok': True})
 
-    if value_text == '+':
-        shift, _created = Shift.objects.update_or_create(
-            worker=worker,
-            date=day,
-            defaults={
-                'coffee_shop': shop,
-                'start_time': None,
-                'another_shop': None,
-                'is_plus': True,
-            }
-        )
-        return JsonResponse({'ok': True, 'action': 'updated_plus'})
+    defaults = {'coffee_shop': worker.coffee_shop, 'start_time': None, 'another_shop': None, 'is_plus': False}
 
-    normalized = value_text.replace('.', ':')
-    if normalized and normalized[0].isdigit() and ':' in normalized:
-        parts = normalized.split(':')
-        if len(parts[0]) == 1:
-            normalized = f"0{parts[0]}:{(parts[1] if len(parts) > 1 else '00')[:2]}"
+    if value == '+':
+        defaults['is_plus'] = True
+    elif ':' in value:
+        try:
+            defaults['start_time'] = datetime.strptime(value, '%H:%M').time()
+        except ValueError:
+            return HttpResponseBadRequest('Invalid time')
+    else:
+        try:
+            another_shop = CoffeeShop.objects.get(short_code=value)
+            defaults['another_shop'] = another_shop
+        except CoffeeShop.DoesNotExist:
+            return HttpResponseBadRequest('Unknown value')
 
-    parsed_time = None
-    try:
-        parsed_time = datetime.strptime(normalized, '%H:%M').time()
-    except Exception:
-        parsed_time = None
-
-    if parsed_time is not None:
-        shift, _created = Shift.objects.update_or_create(
-            worker=worker,
-            date=day,
-            defaults={
-                'coffee_shop': shop,
-                'start_time': parsed_time,
-                'another_shop': None,
-                'is_plus': False,
-            }
-        )
-        return JsonResponse({'ok': True, 'action': 'updated_time', 'time': parsed_time.strftime('%H:%M')})
-
-    try:
-        other_shop = CoffeeShop.objects.get(short_code=value_text)
-    except CoffeeShop.DoesNotExist:
-        return HttpResponseBadRequest('Unknown value')
-
-    shift, _created = Shift.objects.update_or_create(
-        worker=worker,
-        date=day,
-        defaults={
-            'coffee_shop': shop,
-            'start_time': None,
-            'another_shop': other_shop,
-            'is_plus': False,
-        }
-    )
-    return JsonResponse({'ok': True, 'action': 'updated_shop', 'short_code': other_shop.short_code})
+    Shift.objects.update_or_create(worker=worker, date=day, defaults=defaults)
+    return JsonResponse({'ok': True})

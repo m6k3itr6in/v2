@@ -6,31 +6,20 @@
 {% block content %}
 <h2>График: {{ shop.name }} — {{ month }} / {{ year }}</h2>
 <div class="mb-3" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-    <a href="{% url 'main:schedule' shop.id prev_year prev_month %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
-    <a href="{% url 'main:schedule' shop.id next_year next_month %}" class="btn btn-sm btn-outline-primary">Следующий &gt;</a>
+    <a href="{% url 'main:schedule' shop.slug prev_year prev_month %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
+    <a href="{% url 'main:schedule' shop.slug next_year next_month %}" class="btn btn-sm btn-outline-primary">Следующий &gt;</a>
     <button id="goTodayBtn" class="btn btn-sm btn-secondary" type="button">Сегодня</button>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function(){
-            const btn = document.getElementById('goTodayBtn');
-            if (!btn) return;
-            btn.addEventListener('click', function(){
-                const now = new Date();
-                const y = now.getFullYear();
-                const m = now.getMonth() + 1; // 1..12
-                const tpl = "{% url 'main:schedule' shop.id 9999 99 %}";
-                const url = tpl.replace('/9999/99/', `/${y}/${m}/`);
-                window.location.href = url;
-            });
-        });
-    </script>
 </div>
-<table border="1" class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}">
+<table border="1" class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}" data-min-workers="{{ min_workers }}" data-shop-code="{{ shop.short_code }}">
     <thead>
         <tr>
             <th>Работник</th>
-            {% for day in days %}
-                <th>{{ day.day }}</th>
+            {% for day_info in days_info %}
+                {% if day_info.workers_count < min_workers %}
+                    <th class="day-header" data-date="{{ day_info.date|date:'Y-m-d' }}" style="background-color: #F08080;">{{ day_info.date.day }}</th>
+                {% else %}
+                    <th class="day-header" data-date="{{ day_info.date|date:'Y-m-d' }}">{{ day_info.date.day }}</th>
+                {% endif %}
             {% endfor %}
         </tr>
     </thead>
@@ -39,7 +28,10 @@
             <tr>
                 <td>{{ row.worker.name }}</td>
                 {% for cell in row.cells %}
-                    <td class="schedule-cell" data-worker-id="{{ row.worker.id }}" data-date="{{ cell.date|date:'Y-m-d' }}">
+                    <td class="schedule-cell" 
+                        data-worker-id="{{ row.worker.id }}"
+                        data-date="{{ cell.date|date:'Y-m-d' }}"
+                        {% if cell.is_insufficient %}style="background-color: red;"{% endif %}>
                         {% if cell.shift %}
                             {% if cell.shift.is_plus %}
                                 +
@@ -77,6 +69,19 @@
 </div>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const btn = document.getElementById('goTodayBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function(){
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth() + 1;
+            const tpl = "{% url 'main:schedule' shop.slug 9999 99 %}";
+            const url = tpl.replace('/9999/99/', `/${y}/${m}/`);
+            window.location.href = url;
+        });
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
         const modal = document.getElementById('modalWindow');
         const tableEl = document.getElementById('scheduleTable');
@@ -95,6 +100,35 @@
                 }
             }
             return cookieValue;
+        }
+
+        function updateDayHeaders() {
+            const minWorkers = parseInt(tableEl.dataset.minWorkers);
+            const shopCode = tableEl.dataset.shopCode;
+            const otherShopCodes = [];
+            document.querySelectorAll('.modal-btn-short-codes').forEach(btn => {
+                otherShopCodes.push(btn.textContent.trim());
+            });
+            
+            const dayHeaders = document.querySelectorAll('.day-header');
+            dayHeaders.forEach(header => {
+                const date = header.dataset.date;
+                const cells = document.querySelectorAll(`.schedule-cell[data-date="${date}"]`);
+                let count = 0;
+                
+                cells.forEach(cell => {
+                    const text = cell.textContent.trim();
+                    if (text && text !== '' && (text === shopCode || !otherShopCodes.includes(text))) {
+                        count++;
+                    }
+                });
+                
+                if (count < minWorkers) {
+                    header.style.backgroundColor = '#F08080';
+                } else {
+                    header.style.backgroundColor = '';
+                }
+            });
         }
 
         async function saveCellValue(cell, text) {
@@ -116,6 +150,8 @@
             if (!resp.ok) {
                 const msg = await resp.text();
                 console.error('Save error:', msg);
+            } else {
+                updateDayHeaders();
             }
         }
 
@@ -128,7 +164,7 @@
 
         modal.addEventListener('click', function (event) {
             const btn = event.target.closest('button');
-            if (!btn) return;
+            if (!btn || !currentCell) return;
 
             const text = btn.textContent.trim();
 
@@ -137,22 +173,13 @@
                 return;
             }
 
-            if (text === '+') {
-                if (currentCell) {
-                    currentCell.textContent = '+';
-                    saveCellValue(currentCell, '+').catch(console.error);
-                }
-                modal.style.display = 'none';
-                return;
-            }
-
             if (text === 'Выходной') {
                 currentCell.textContent = '';
+                saveCellValue(currentCell, '').catch(console.error);
             } else {
                 currentCell.textContent = text;
+                saveCellValue(currentCell, text).catch(console.error);
             }
-
-            saveCellValue(currentCell, currentCell.textContent.trim()).catch(console.error);
 
             modal.style.display = 'none';
         });

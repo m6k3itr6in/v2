@@ -4,7 +4,8 @@ from .models import CoffeeShop, Worker, Shift
 # Register your models here.
 @admin.register(CoffeeShop)
 class CoffeeShopAdmin(admin.ModelAdmin):
-    list_display = ['name', 'short_code', 'minimum_workers']
+    list_display = ['name', 'slug', 'short_code', 'minimum_workers']
+    prepopulated_fields = {'slug': ('name',)}
 
 @admin.register(Worker)
 class WorkerAdmin(admin.ModelAdmin):

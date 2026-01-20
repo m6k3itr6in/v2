@@ -4,18 +4,39 @@
 {% block title %}Workers{% endblock title %}
 
 {% block content %}
-    {% now "Y" as now_year %}
-    {% now "m" as now_month %}
-    <div class="home">
-        {% for worker in workers %}
-            <div class="workers-in">
-                <div class="worker-name">
-                    <a href="">{{ worker.name }}</a>
-                </div>
+    <div class="mb-3">
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'main:workers' worker.coffee_shop.slug %}">Назад к списку</a>
+    </div>
+
+    <div class="card p-3">
+        <div class="row g-3 align-items-start">
+            <div class="col-auto">
+                {% if worker.photo %}
+                    <a href="{{ worker.photo.url }}" target="_blank" rel="noopener">
+                        <img class="worker-detail-avatar" src="{{ worker.photo.url }}" alt="Фото: {{ worker.name }}" style="width:96px;height:96px;">
+                    </a>
+                {% else %}
+                    <div class="worker-detail-avatar worker-detail-avatar--placeholder" aria-hidden="true" style="width:96px;height:96px;"></div>
+                {% endif %}
             </div>
-        {% endfor %}
-        <div class="shift-shop">
-            <a href="{% url 'main:schedule' shop.slug now_year now_month %}">Расписание этой точки</a>
+
+            <div class="col">
+                <h3 class="m-0">{{ worker.name }}</h3>
+                <div class="text-muted">Точка: {{ worker.coffee_shop.name }}</div>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div><b>Телефон:</b> {{ worker.phone_number }}</div>
+                <div><b>Ставка:</b> {{ worker.hourly_rate }}</div>
+            </div>
+            <div class="col-md-6">
+                <div><b>Стаж (лет):</b> {{ worker.experience_years }}</div>
+                <div><b>Начало стажа:</b> {{ worker.start_date_experience_years }}</div>
+            </div>
         </div>
     </div>
 {% endblock content %}

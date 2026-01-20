@@ -1,0 +1,21 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block title %}Workers{% endblock title %}
+
+{% block content %}
+    {% now "Y" as now_year %}
+    {% now "m" as now_month %}
+    <div class="home">
+        {% for worker in workers %}
+            <div class="workers-in">
+                <div class="worker-name">
+                    <a href="{% url 'main:worker_detail' worker.id %}">{{ worker.name }}</a>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="shift-shop">
+            <a href="{% url 'main:schedule' shop.slug now_year now_month %}">Расписание этой точки</a>
+        </div>
+    </div>
+{% endblock content %}

@@ -28,9 +28,10 @@
             <tr>
                 <td>{{ row.worker.name }}</td>
                 {% for cell in row.cells %}
-                    <td class="schedule-cell" 
+                    <td class="schedule-cell{% if row.worker.coffee_shop_id != shop.id %} schedule-cell-readonly{% endif %}" 
                         data-worker-id="{{ row.worker.id }}"
                         data-date="{{ cell.date|date:'Y-m-d' }}"
+                        data-readonly="{% if row.worker.coffee_shop_id != shop.id %}1{% else %}0{% endif %}"
                         {% if cell.is_insufficient %}style="background-color: red;"{% endif %}>
                         {% if cell.shift %}
                             {% if cell.shift.is_plus %}
@@ -150,6 +151,7 @@
             if (!resp.ok) {
                 const msg = await resp.text();
                 console.error('Save error:', msg);
+                window.location.reload();
             } else {
                 updateDayHeaders();
             }
@@ -157,6 +159,7 @@
 
         document.querySelectorAll('.schedule-cell').forEach(cell => {
             cell.addEventListener('click', function () {
+                if (this.dataset.readonly === '1') return;
                 currentCell = this;
                 modal.style.display = 'flex';
             });

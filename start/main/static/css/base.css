@@ -40,3 +40,30 @@
 .modal-btn:hover, .modal-btn-back:hover, .modal-btn-short-codes:hover {
     background: #e0e0e0;
 }
+
+.schedule-cell-readonly {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.worker-detail-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
+    object-fit: cover; /* режет по центру, не растягивает */
+    object-position: center;
+    display: block;
+    border: 1px solid rgba(0,0,0,0.12);
+    background: #f2f2f2;
+}
+
+.worker-detail-avatar--placeholder {
+    background: linear-gradient(135deg, #eee, #ddd);
+}
+
+@media (max-width: 576px) {
+    .worker-detail-avatar {
+        width: 72px;
+        height: 72px;
+    }
+}

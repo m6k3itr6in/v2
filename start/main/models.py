@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from django.utils import timezone
 import re
 
 def transliterate(text):
@@ -40,11 +41,31 @@ class CoffeeShop(models.Model):
 class Worker(models.Model):
     name = models.CharField(max_length=50)
     phone_number = models.CharField(max_length=15)
-    experience_years = models.IntegerField()
+    experience_years = models.IntegerField(default=0)
     start_date_experience_years = models.DateField()
     hourly_rate = models.IntegerField()
     coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers')
     fired_at = models.DateField(null=True, blank=True)
+    photo = models.ImageField(upload_to='workers/photos/', null=True, blank=True)
+
+    def compute_experience_years(self, as_of=None) -> int:
+        if not self.start_date_experience_years:
+            return 0
+        as_of = as_of or timezone.localdate()
+        start = self.start_date_experience_years
+        years = as_of.year - start.year
+        if (as_of.month, as_of.day) < (start.month, start.day):
+            years -= 1
+        return max(0, years)
+
+    def sync_experience_years(self, as_of=None, save=False) -> bool:
+        new_val = self.compute_experience_years(as_of=as_of)
+        if self.experience_years == new_val:
+            return False
+        self.experience_years = new_val
+        if save:
+            self.save(update_fields=["experience_years"])
+        return True
 
     def __str__(self):
         return self.name

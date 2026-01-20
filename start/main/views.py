@@ -5,20 +5,35 @@ from django.utils import timezone
 from django.db.models import Q
 import calendar
 from datetime import date, timedelta, datetime
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 import json
 
-# Create your views here.
+def sync_workers_experience_years(workers):
+    today = timezone.localdate()
+    to_update = []
+    for w in workers:
+        if w.sync_experience_years(as_of=today, save=False):
+            to_update.append(w)
+    if to_update:
+        Worker.objects.bulk_update(to_update, ["experience_years"])
+
 def index(request):
     cafes = CoffeeShop.objects.all()
     return render(request, 'main/index/index.html', {'cafes':cafes})
 
 def get_workers(request, slug):
     shop = get_object_or_404(CoffeeShop, slug=slug)
-    workers = Worker.objects.filter(coffee_shop=shop)
-    return render(request, 'main/workers/worker.html', {'workers':workers, 'shop':shop})
+    workers = list(Worker.objects.filter(coffee_shop=shop))
+    sync_workers_experience_years(workers)
+    return render(request, 'main/shops/shops.html', {'workers':workers, 'shop':shop})
+
+
+def worker_detail(request, worker_id):
+    worker = get_object_or_404(Worker, id=worker_id)
+    worker.sync_experience_years(as_of=timezone.localdate(), save=True)
+    return render(request, 'main/workers/worker.html', {'worker': worker})
 
 def get_month_days(year, month):
     num_days = calendar.monthrange(year, month)[1]
@@ -76,7 +91,8 @@ def schedule_view(request, slug, year=None, month=None):
     month = int(month) if month else today.month
 
     days = get_month_days(year, month)
-    workers = get_active_workers(shop, year, month)
+    workers = list(get_active_workers(shop, year, month))
+    sync_workers_experience_years(workers)
     
     shifts = Shift.objects.filter(coffee_shop=shop, date__year=year, date__month=month)
     
@@ -90,7 +106,8 @@ def schedule_view(request, slug, year=None, month=None):
     shifts_by_day_worker = {(s.worker_id, s.date): s for s in all_shifts}
     
     workers_from_other_shops_ids = shifts_from_other_shops.values_list('worker_id', flat=True).distinct()
-    workers_from_other_shops = Worker.objects.filter(id__in=workers_from_other_shops_ids)
+    workers_from_other_shops = list(Worker.objects.filter(id__in=workers_from_other_shops_ids))
+    sync_workers_experience_years(workers_from_other_shops)
     
     all_workers = list(workers) + list(workers_from_other_shops)
     
@@ -126,6 +143,9 @@ def update_shift(request):
         value = (data.get('value') or '').strip()
     except (KeyError, json.JSONDecodeError, Worker.DoesNotExist, CoffeeShop.DoesNotExist, ValueError):
         return HttpResponseBadRequest('Invalid request')
+
+    if worker.coffee_shop_id != target_shop.id:
+        return HttpResponseForbidden('Нельзя менять график работника в чужой кофейне')
 
     if not value or value.lower() in ('выходной', 'off', 'none'):
         Shift.objects.filter(worker=worker, date=day).delete()

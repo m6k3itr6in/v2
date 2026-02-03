@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.utils import timezone
-import re
+from django.contrib.auth.models import User
 
 def transliterate(text):
     translit_map = {
@@ -22,6 +22,24 @@ def transliterate(text):
     return result
 
 # Create your models here.
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('SUPER_ADMIN', 'Супер-админ'),
+        ('SHOP_ADMIN', 'Админ точки'),
+        ('WORKER', 'Работник')
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='WORKER')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_profiles'
+        indexes = [models.Index(fields=['role'])]
+    
+    def __str__(self):
+        return self.user.username
+
 class CoffeeShop(models.Model):
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=50, unique=True, blank=True)
@@ -30,13 +48,26 @@ class CoffeeShop(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            transliterated = transliterate(self.name)
-            self.slug = slugify(transliterated)
+            self.slug = slugify(transliterate(self.name))
+        if not self.short_code:
+            self.short_code = transliterate(self.name)[:3].upper()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
-    
+
+class ShopAdmin(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_shops')
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='admins')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'coffee_shop']
+        db_table = 'shop_admins'
+        indexes = [models.Index(fields=['user', 'coffee_shop'])]
+
+    def __str__(self):
+        return self.user.username
 
 class Worker(models.Model):
     name = models.CharField(max_length=50)
@@ -47,6 +78,11 @@ class Worker(models.Model):
     coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers')
     fired_at = models.DateField(null=True, blank=True)
     photo = models.ImageField(upload_to='workers/photos/', null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='worker_profile')
+
+    class Meta:
+        db_table = 'workers'
+        indexes = [models.Index(fields=['coffee_shop', 'fired_at']), models.Index(fields=['user'])]
 
     def compute_experience_years(self, as_of=None) -> int:
         if not self.start_date_experience_years:
@@ -71,9 +107,54 @@ class Worker(models.Model):
         return self.name
     
 class Shift(models.Model):
-    worker = models.ForeignKey(Worker, on_delete=models.CASCADE)
-    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE)
+    worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='shifts')
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='shifts')
     date = models.DateField()
     start_time = models.TimeField(null=True, blank=True)
     another_shop = models.ForeignKey(CoffeeShop, null=True, blank=True, on_delete=models.SET_NULL, related_name='extra_shift')
     is_plus = models.BooleanField(default=False)
+    replacement_worker = models.ForeignKey(Worker, null=True, blank=True, on_delete=models.SET_NULL, related_name='replacement_shifts')
+
+    class Meta:
+        unique_together = ['worker', 'date']
+        db_table = 'shifts'
+        indexes = [models.Index(fields=['coffee_shop', 'date']), models.Index(fields=['worker', 'date']), models.Index(fields=['date'])]
+
+    def __str__(self):
+        return self.worker.name
+
+
+class ShiftRequest(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Ожидает подтверждения'),
+        ('APPROVED', 'Подтверждено'),
+        ('REJECTED', 'Отклонено'),
+        ('TAKEN', 'Взято другим работником'),
+        ('CANCELED', 'Отменено')
+    ]
+
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='requests')
+    worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='shift_requests')
+    reason = models.TextField(verbose_name='Причина отдачи смены', max_length=500)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+
+    requested_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                   related_name='approved_shift_requests')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    
+    taken_by = models.ForeignKey(Worker, null=True, blank=True, on_delete=models.SET_NULL, 
+                                 related_name='taken_shifts')
+    taken_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'shift_requests'
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status', 'requested_at']),
+            models.Index(fields=['shift', 'status']),
+            models.Index(fields=['worker', 'status']),
+        ]
+    
+    def __str__(self):
+        return self.worker.name

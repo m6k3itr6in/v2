@@ -49,6 +49,38 @@
     </tbody>
 </table>
 
+{% if role == 'WORKER' and my_future_shifts %}
+    <div class="mt-3">
+        <button type="button" class="btn btn-warning" onclick="document.getElementById('giveAwayModal').style.display='flex'">
+            Отдать смену
+        </button>
+    </div>
+
+    <div class="modal-window" id="giveAwayModal" style="display:none;">
+        <div class="modal-in" style="max-width: 400px;">
+            <h4>Выберите смену для отдачи</h4>
+            <form action="{% url 'main:offer_shift' 0 %}" method="POST" id="giveAwayForm">
+                {% csrf_token %}
+                <div class="list-group mb-3" style="max-height: 300px; overflow-y: auto;">
+                    {% for s in my_future_shifts %}
+                        <label class="list-group-item d-flex justify-content-between align-items-center">
+                            <input type="radio" name="shift_id" value="{{ s.id }}" required>
+                            <span>{{ s.date|date:"d.m (D)" }} — 
+                                {% if s.start_time %}{{ s.start_time|time:"H:i" }}{% else %}+{% endif %}
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <textarea name="reason" class="form-control mb-3" placeholder="Причина (необязательно)"></textarea>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-danger flex-grow-1">Подтвердить</button>
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('giveAwayModal').style.display='none'">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
 {% csrf_token %}
 <div class="modal-window" id="modalWindow">
     <div class="modal-in">

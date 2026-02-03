@@ -1,0 +1,21 @@
+{% extends 'main/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Назначить админа кофейни</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div class="form-group">
+            {{ field.label_tag }}
+            {{ field }}
+            <div class="error">{{ field.errors }}</div>
+        </div>
+        {% endfor %}
+
+        <button type="submit" style="margin-top: 10px;">Назначить</button>
+    </form>
+</div>
+{% endblock %}

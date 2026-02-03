@@ -67,3 +67,19 @@
         height: 72px;
     }
 }
+
+.cafes-in {
+    border: 1px solid black;
+    border-radius: 20px;
+    margin-top: 40px;
+}
+
+.cafe-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cafe-name-a {
+    font-size: 50px;
+}

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     {% load static %}
     <meta charset="UTF-8">
@@ -10,15 +11,17 @@
     <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
+
 <body>
     <header class="header sticky-top d-flex align-items-center">
         <div class="container d-flex align-items-center justify-content-between py-2">
             <a class="text-decoration-none" href="{% url 'main:index' %}">Главная</a>
+            {% if user.is_superuser %}
             <div class="d-flex align-items-center gap-2">
-                {% if request.user.is_staff %}
-                    <a class="btn btn-sm btn-outline-dark" href="{% url 'admin:index' %}">Админка</a>
-                {% endif %}
+                <a class="btn btn-sm btn-outline-dark" href="{% url 'admin:index' %}">Админка</a>
+                <a class="btn btn-sm btn-primary" href="{% url 'main:assign_shop_admin' %}">Назначить управляющих</a>
             </div>
+            {% endif %}
         </div>
     </header>
     <div class="container">
@@ -27,4 +30,5 @@
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </body>
+
 </html>

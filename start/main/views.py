@@ -66,7 +66,8 @@ def get_workers(request, slug):
 def worker_detail(request, worker_id):
     worker = get_object_or_404(Worker, id=worker_id)
     worker.sync_experience_years(as_of=timezone.localdate(), save=True)
-    return render(request, 'main/workers/worker.html', {'worker': worker})
+    role = get_user_role(request.user)
+    return render(request, 'main/workers/worker.html', {'worker': worker, 'role': role})
 
 def get_month_days(year, month):
     num_days = calendar.monthrange(year, month)[1]
@@ -177,9 +178,9 @@ def schedule_view(request, slug, year=None, month=None):
 
 @login_required
 @require_POST
-def offer_shift_exchange(request, shift_id):
-    s_id = shift_id or request.POST.get('shift_id')
-    shift = get_object_or_404(Shift, id=shift_id)
+def offer_shift_exchange(request):
+    shift_id = request.POST.get('shift_id')
+    shift = get_object_or_404(Shift, id=int(shift_id))
     worker = getattr(request.user, 'worker_profile', None)
     if not worker or shift.worker != worker:
         return HttpResponseForbidden('Не ваша смена')

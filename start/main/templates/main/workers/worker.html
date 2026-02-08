@@ -42,10 +42,12 @@
             <div><b>Стаж (лет):</b> {{ worker.experience_years }}</div>
             <div><b>Начало стажа:</b> {{ worker.start_date_experience_years }}</div>
             <div><b>Начало отпуска:</b>{{ worker.get_vacation_start_date }}
-                <form action="{% url 'main:register_vacation' worker.id %}" method="POST">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Зафиксировать</button>
-                </form>
+                {% if role == 'SHOP_ADMIN' or role == 'SUPER_ADMIN' %}
+                    <form action="{% url 'main:register_vacation' worker.id %}" method="POST">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Зафиксировать</button>
+                    </form>
+                {% endif %}
             </div>
         </div>
     </div>

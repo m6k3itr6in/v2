@@ -1,4 +1,5 @@
 from django.db import models
+from encrypted_model_fields.fields import EncryptedCharField
 from django.utils.text import slugify
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -72,7 +73,7 @@ class ShopAdmin(models.Model):
 
 class Worker(models.Model):
     name = models.CharField(max_length=50)
-    phone_number = models.CharField(max_length=15)
+    phone_number = EncryptedCharField(max_length=15)
     experience_years = models.IntegerField(default=0)
     start_date_experience_years = models.DateField()
     hourly_rate = models.IntegerField()

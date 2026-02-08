@@ -59,7 +59,7 @@
     <div class="modal-window" id="giveAwayModal" style="display:none;">
         <div class="modal-in" style="max-width: 400px;">
             <h4>Выберите смену для отдачи</h4>
-            <form action="{% url 'main:offer_shift' 0 %}" method="POST" id="giveAwayForm">
+            <form action="{% url 'main:offer_shift_exchange' %}" method="POST" id="giveAwayForm">
                 {% csrf_token %}
                 <div class="list-group mb-3" style="max-height: 300px; overflow-y: auto;">
                     {% for s in my_future_shifts %}

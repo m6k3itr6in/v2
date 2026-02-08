@@ -27,6 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+FIELD_ENCRYPTION_KEY = 'BK-2YV_2nfb-qNV8xDig7dE66bFP-aalVgHAkANebaM='
 
 # Application definition
 
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'main',
+    'encrypted_model_fields',
 ]
 
 MIDDLEWARE = [

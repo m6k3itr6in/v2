@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.text import slugify
 from django.utils import timezone
 from django.contrib.auth.models import User
+import datetime
 
 def transliterate(text):
     translit_map = {
@@ -79,10 +80,18 @@ class Worker(models.Model):
     fired_at = models.DateField(null=True, blank=True)
     photo = models.ImageField(upload_to='workers/photos/', null=True, blank=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='worker_profile')
+    vacation = models.DateField(null=True, blank=True)
 
     class Meta:
         db_table = 'workers'
         indexes = [models.Index(fields=['coffee_shop', 'fired_at']), models.Index(fields=['user'])]
+
+    def get_vacation_start_date(self):
+        if self.vacation:
+            return self.vacation + datetime.timedelta(days=180)
+
+        if self.start_date_experience_years:
+            return self.start_date_experience_years + datetime.timedelta(days=180)
 
     def compute_experience_years(self, as_of=None) -> int:
         if not self.start_date_experience_years:

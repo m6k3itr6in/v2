@@ -13,6 +13,7 @@ urlpatterns = [
     path('shift/take/<int:request_id>/', views.take_shift, name='take_shift'),
     path('shift/approve/<int:request_id>/', views.approve_shift_request, name='approve_shift_request'),
     path('workers/add/', views.add_worker, name='add_worker'),
+    path('workers/register_vacation/<int:worker_id>/', views.register_vacation, name='register_vacation'),
     path('managment/assign/', views.assign_shop_admin, name='assign_shop_admin'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.log_out, name='logout'),

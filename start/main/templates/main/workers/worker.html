@@ -4,39 +4,50 @@
 {% block title %}Workers{% endblock title %}
 
 {% block content %}
-    <div class="mb-3">
-        <a class="btn btn-sm btn-outline-secondary" href="{% url 'main:workers' worker.coffee_shop.slug %}">Назад к списку</a>
-    </div>
+<div class="mb-3">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'main:workers' worker.coffee_shop.slug %}">Назад к
+        списку</a>
+</div>
 
-    <div class="card p-3">
-        <div class="row g-3 align-items-start">
-            <div class="col-auto">
-                {% if worker.photo %}
-                    <a href="{{ worker.photo.url }}" target="_blank" rel="noopener">
-                        <img class="worker-detail-avatar" src="{{ worker.photo.url }}" alt="Фото: {{ worker.name }}" style="width:96px;height:96px;">
-                    </a>
-                {% else %}
-                    <div class="worker-detail-avatar worker-detail-avatar--placeholder" aria-hidden="true" style="width:96px;height:96px;"></div>
-                {% endif %}
-            </div>
-
-            <div class="col">
-                <h3 class="m-0">{{ worker.name }}</h3>
-                <div class="text-muted">Точка: {{ worker.coffee_shop.name }}</div>
-            </div>
+<div class="card p-3">
+    <div class="row g-3 align-items-start">
+        <div class="col-auto">
+            {% if worker.photo %}
+            <a href="{{ worker.photo.url }}" target="_blank" rel="noopener">
+                <img class="worker-detail-avatar" src="{{ worker.photo.url }}" alt="Фото: {{ worker.name }}"
+                    style="width:96px;height:96px;">
+            </a>
+            {% else %}
+            <div class="worker-detail-avatar worker-detail-avatar--placeholder" aria-hidden="true"
+                style="width:96px;height:96px;"></div>
+            {% endif %}
         </div>
 
-        <hr>
+        <div class="col">
+            <h3 class="m-0">{{ worker.name }}</h3>
+            <div class="text-muted">Точка: {{ worker.coffee_shop.name }}</div>
+        </div>
+    </div>
 
-        <div class="row">
-            <div class="col-md-6">
-                <div><b>Телефон:</b> {{ worker.phone_number }}</div>
-                <div><b>Ставка:</b> {{ worker.hourly_rate }}</div>
-            </div>
-            <div class="col-md-6">
-                <div><b>Стаж (лет):</b> {{ worker.experience_years }}</div>
-                <div><b>Начало стажа:</b> {{ worker.start_date_experience_years }}</div>
+    <hr>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div><b>Телефон:</b> {{ worker.phone_number }}</div>
+            <div><b>Ставка:</b> {{ worker.hourly_rate }}</div>
+            <div><b>Последний отпуск:</b> {% if worker.vacation == None %}Не было {% else %} {{ worker.vacation }}
+                {% endif %}</div>
+        </div>
+        <div class="col-md-6">
+            <div><b>Стаж (лет):</b> {{ worker.experience_years }}</div>
+            <div><b>Начало стажа:</b> {{ worker.start_date_experience_years }}</div>
+            <div><b>Начало отпуска:</b>{{ worker.get_vacation_start_date }}
+                <form action="{% url 'main:register_vacation' worker.id %}" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Зафиксировать</button>
+                </form>
             </div>
         </div>
     </div>
+</div>
 {% endblock content %}

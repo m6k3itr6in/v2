@@ -112,9 +112,6 @@ def schedule_view(request, slug, year=None, month=None):
     shop = get_object_or_404(CoffeeShop, slug=slug)
     role = get_user_role(request.user)
 
-    if role == 'SUPER_ADMIN':
-        return HttpResponseForbidden("Super_admin is not allowed")
-
     if role == 'SHOP_ADMIN':
         is_assigned = ShopAdmin.objects.filter(user=request.user, coffee_shop=shop).exists()
         if not is_assigned:
@@ -244,6 +241,9 @@ def update_shift(request):
     if role != 'SHOP_ADMIN':
         return HttpResponseForbidden("You are not admin")
 
+    if role == 'SUPER_ADMIN':
+        return HttpResponseForbidden("Youre super admin")
+
     try:
         data = json.loads(request.body)
         worker = Worker.objects.get(id=data['worker_id'])
@@ -285,7 +285,7 @@ def update_shift(request):
 @login_required
 def add_worker(request):
     role = get_user_role(request.user)
-    if role != 'SHOP_ADMIN':
+    if role != 'SHOP_ADMIN' and role != 'SUPER_ADMIN':
         return HttpResponseForbidden("Вы не админ")
 
     admin_relation = ShopAdmin.objects.filter(user=request.user).first()
@@ -343,3 +343,24 @@ def login_view(request):
 def log_out(request):
     logout(request)
     return redirect('main:login')
+
+@login_required
+@require_POST
+def register_vacation(request, worker_id):
+    role = get_user_role(request.user)
+    if role == 'WORKER':
+        return HttpResponseForbidden("Вы не админ")
+
+    worker = get_object_or_404(Worker, id=worker_id)
+    
+    if role == 'SHOP_ADMIN':
+        admin_shop = ShopAdmin.objects.filter(user=request.user).first()
+        if not admin_shop or admin_shop.coffee_shop != worker.coffee_shop:
+            return HttpResponseForbidden("Вы не админ этой конкретной кофейни")
+    else:
+        pass
+
+    worker.vacation = timezone.now().date()
+    worker.save()
+    
+    return redirect('main:worker_detail', worker.id)

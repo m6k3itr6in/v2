@@ -1,0 +1,28 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block content %}
+<h1>Заявки на смены</h1>
+<div class="application">
+    {% for s in shift_req %}
+        <div class="application-item">
+            <h3>Имя: {{ s.worker.name }}</h3>
+            <h5>Создана: {{ s.requested_at }}</h5>
+            <h5>На смену: {{ s.shift.date }}</h5>
+            <h5>Предложена: {% if s.taken_by == None%}Никому{% else %}{{ s.taken_by }}{% endif %}</h5>
+            <h5>Причина: {{ s.reason }}</h5>
+            <form action="{% url 'main:accept_application' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="application_id" value="{{ s.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Подтвердить</button>
+            </form>
+            <form action="{% url 'main:reject_application' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="application_id" value="{{ s.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Отклонить</button>
+            </form>
+            <hr>
+        </div>
+    {% endfor %}
+</div>
+{% endblock content %}

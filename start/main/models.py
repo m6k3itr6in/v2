@@ -143,7 +143,7 @@ class ShiftRequest(models.Model):
         ('CANCELED', 'Отменено')
     ]
 
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='requests')
+    shift = models.ForeignKey(Shift, on_delete=models.SET_NULL, related_name='requests', null=True, blank=True)
     worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='shift_requests')
     reason = models.TextField(verbose_name='Причина отдачи смены', max_length=500)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')

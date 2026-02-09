@@ -157,6 +157,11 @@ def schedule_view(request, slug, year=None, month=None):
                 coffee_shop=shop
             ).order_by('date')
 
+    if role == 'WORKER':
+        colleagues = Worker.objects.filter(coffee_shop=shop).exclude(id=worker.id)
+    else:
+        colleagues = []
+
     return render(request, 'main/schedule/schedule.html', {
         'shop': shop,
         'role': role,
@@ -174,6 +179,7 @@ def schedule_view(request, slug, year=None, month=None):
         'next_month': next_month,
         'requests_map':requests_map,
         'my_future_shifts':my_future_shifts,
+        'colleagues':colleagues,
     })
 
 @login_required
@@ -182,57 +188,20 @@ def offer_shift_exchange(request):
     shift_id = request.POST.get('shift_id')
     shift = get_object_or_404(Shift, id=int(shift_id))
     worker = getattr(request.user, 'worker_profile', None)
+    receiver_id = request.POST.get('taken_by_id')
+    if receiver_id and receiver_id.isdigit():
+        receiver = Worker.objects.filter(id=receiver_id).first() 
+    else: 
+        receiver = None
+    
     if not worker or shift.worker != worker:
         return HttpResponseForbidden('Не ваша смена')
 
     if ShiftRequest.objects.filter(shift=shift, status='PENDING').exists():
-        messages.warning(request, 'Заявка уже есть')
+        pass
     else:
-        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status='PENDING')
-        messages.success(request, 'Смена выставлена')
+        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status='PENDING', taken_by=receiver)
     
-    return redirect('main:schedule', slug=shift.coffee_shop.slug, year=shift.date.year, month=shift.date.month)
-
-@login_required
-@require_POST
-def take_shift(request, request_id):
-    shift_req = get_object_or_404(ShiftRequest, id=request_id, status='PENDING')
-    worker = getattr(request.user, 'worker_profile', None)
-    if not worker:
-        return HttpResponseForbidden('No worker profile')
-    
-    if shift_req.worker == worker:
-        return HttpResponseBadRequest("Нельзя забрать свою же смену.")
-    
-    shift_req.taken_by = worker
-    shift_req.taken_at = timezone.now()
-    shift_req.save()
-    
-    messages.info(request, "Ваш запрос на взятие смены отправлен на подтверждение админу.")
-    return redirect('main:schedule', slug=shift_req.shift.coffee_shop.slug, year=shift_req.shift.date.year, month=shift_req.shift.date.month)
-
-@login_required
-def approve_shift_request(request, request_id):
-    role = get_user_role(request.user)
-    if role not in ['SHOP_ADMIN', 'SUPER_ADMIN']:
-        return HttpResponseForbidden("Нет прав")
-    
-    shift_req = get_object_or_404(ShiftRequest, id=request_id, status='PENDING')
-
-    if not shift_req.taken_by:
-        messages.error(request, "Никто еще не вызвался забрать эту смену.")
-        return redirect(request.META.get('HTTP_REFERER'))
-
-    shift = shift_req.shift
-    shift.worker = shift_req.taken_by
-    shift.save()
-
-    shift_req.status = 'APPROVED'
-    shift_req.approved_by = request.user
-    shift_req.approved_at = timezone.now()
-    shift_req.save()
-
-    messages.success(request, f"Смена успешно передана сотруднику {shift.worker.name}")
     return redirect('main:schedule', slug=shift.coffee_shop.slug, year=shift.date.year, month=shift.date.month)
 
 @require_POST
@@ -365,3 +334,44 @@ def register_vacation(request, worker_id):
     worker.save()
     
     return redirect('main:worker_detail', worker.id)
+
+def shift_applications(request):
+    shift_req = (ShiftRequest.objects.filter(status='PENDING').select_related('worker'))
+
+    return render(request, 'main/applications/shift_applications.html', {'shift_req':shift_req,})
+
+@login_required
+@require_POST
+def accept_application(request):
+    id = request.POST.get('application_id')
+    app = get_object_or_404(ShiftRequest, id=id)
+    shift = app.shift
+    app.approved_by = request.user
+    app.approved_at = timezone.now()
+    if app.taken_by:
+        app.status = 'TAKEN'
+        if shift:
+            shift.worker = app.taken_by
+            shift.save()
+        app.save()
+    else:
+        app.status = 'APPROVED'
+        app.shift = None
+        app.save()
+        if shift:
+            shift.delete()
+    
+    return redirect('main:shift_applications')
+
+
+@login_required
+@require_POST
+def reject_application(request):
+    id = request.POST.get('application_id')
+    app = get_object_or_404(ShiftRequest, id=id)
+    app.status = 'REJECTED'
+    app.approved_by = request.user
+    app.approved_at = timezone.now()
+    app.save()
+
+    return redirect('main:shift_applications')

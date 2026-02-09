@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group, User
 from django.contrib.admin.sites import NotRegistered
-from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin
+from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest
 
 # Register your models here.
 try:
@@ -25,3 +25,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 @admin.register(ShopAdmin)
 class ShopAdminAdmin(admin.ModelAdmin):
     list_display = ['user', 'coffee_shop', 'assigned_at']
+
+@admin.register(ShiftRequest)
+class ShiftRequestAdmin(admin.ModelAdmin):
+    list_display = ['shift', 'worker', 'reason', 'status', 'requested_at', 'approved_by', 'approved_at', 'taken_by', 'taken_at']

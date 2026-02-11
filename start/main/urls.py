@@ -10,6 +10,7 @@ urlpatterns = [
     path('schedule/<slug:slug>/<int:year>/<int:month>/', views.schedule_view, name='schedule'),
     path('api/schedule/update/', views.update_shift, name='update_shift'),
     path('shift/offer/', views.offer_shift_exchange, name='offer_shift_exchange'),
+    path('applications/confirm/', views.confirm_take_shift, name='confirm_take_shift'),
     path('applications/', views.shift_applications, name='shift_applications'),
     path('applications/accept/', views.accept_application, name='accept_application'),
     path('applications/reject/', views.reject_application, name='reject_application'),

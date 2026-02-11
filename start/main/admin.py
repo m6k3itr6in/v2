@@ -11,12 +11,12 @@ except NotRegistered:
 
 @admin.register(CoffeeShop)
 class CoffeeShopAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'short_code', 'minimum_workers']
+    list_display = ['name', 'slug', 'short_code', 'minimum_workers', 'hourly_rate']
     prepopulated_fields = {'slug': ('name',)}
 
 @admin.register(Worker)
 class WorkerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone_number', 'experience_years', 'start_date_experience_years', 'hourly_rate', 'coffee_shop']
+    list_display = ['name', 'phone_number', 'experience_years', 'start_date_experience_years', 'coffee_shop']
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):

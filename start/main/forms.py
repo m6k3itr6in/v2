@@ -8,7 +8,7 @@ class WorkerCreationForm(forms.ModelForm):
 
     class Meta:
         model = Worker
-        fields = ['name', 'phone_number', 'hourly_rate', 'start_date_experience_years']
+        fields = ['name', 'phone_number', 'start_date_experience_years']
         widgets = {
             'start_date_experience_years':forms.DateInput(attrs={'type':'date'}),
         }

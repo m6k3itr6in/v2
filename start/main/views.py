@@ -200,7 +200,7 @@ def offer_shift_exchange(request):
     if ShiftRequest.objects.filter(shift=shift, status='PENDING').exists():
         pass
     else:
-        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status='PENDING', taken_by=receiver)
+        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status='AWAITING_TAKER', taken_by=receiver)
     
     return redirect('main:schedule', slug=shift.coffee_shop.slug, year=shift.date.year, month=shift.date.month)
 
@@ -336,9 +336,16 @@ def register_vacation(request, worker_id):
     return redirect('main:worker_detail', worker.id)
 
 def shift_applications(request):
-    shift_req = (ShiftRequest.objects.filter(status='PENDING').select_related('worker'))
+    role = get_user_role(request.user)
+    if role in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        shift_req = ShiftRequest.objects.filter(status='PENDING').select_related('worker', 'shift', 'taken_by')
+        context = {'role':role, 'shift_req':shift_req}
+    else:
+        taker = getattr(request.user, 'worker_profile', None)
+        my_incoming = ShiftRequest.objects.filter(taken_by=taker, status='AWAITING_TAKER').select_related('shift', 'worker')
+        context = {'role':role, 'my_incoming':my_incoming}
 
-    return render(request, 'main/applications/shift_applications.html', {'shift_req':shift_req,})
+    return render(request, 'main/applications/shift_applications.html', context)
 
 @login_required
 @require_POST
@@ -361,6 +368,22 @@ def accept_application(request):
         if shift:
             shift.delete()
     
+    return redirect('main:shift_applications')
+
+@login_required
+@require_POST
+def confirm_take_shift(request):
+    id = request.POST.get('application_id')
+    role = get_user_role(request.user)
+    app = get_object_or_404(ShiftRequest, id=id)
+    action = request.POST.get('action')
+    if action == 'accept':
+        app.status = 'PENDING'
+        app.save()
+    else:
+        app.status = 'REJECTED'
+        app.save()
+
     return redirect('main:shift_applications')
 
 

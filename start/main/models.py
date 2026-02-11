@@ -47,6 +47,7 @@ class CoffeeShop(models.Model):
     slug = models.SlugField(max_length=50, unique=True, blank=True)
     short_code = models.CharField(max_length=10, unique=True, default='')
     minimum_workers = models.IntegerField(default=4)
+    hourly_rate = models.IntegerField(default=2400)
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -76,7 +77,6 @@ class Worker(models.Model):
     phone_number = EncryptedCharField(max_length=15)
     experience_years = models.IntegerField(default=0)
     start_date_experience_years = models.DateField()
-    hourly_rate = models.IntegerField()
     coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers')
     fired_at = models.DateField(null=True, blank=True)
     photo = models.ImageField(upload_to='workers/photos/', null=True, blank=True)
@@ -140,7 +140,8 @@ class ShiftRequest(models.Model):
         ('APPROVED', 'Подтверждено'),
         ('REJECTED', 'Отклонено'),
         ('TAKEN', 'Взято другим работником'),
-        ('CANCELED', 'Отменено')
+        ('CANCELED', 'Отменено'),
+        ('AWAITING_TAKER', 'Ждет подтверждения работника')
     ]
 
     shift = models.ForeignKey(Shift, on_delete=models.SET_NULL, related_name='requests', null=True, blank=True)

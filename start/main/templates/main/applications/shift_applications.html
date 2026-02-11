@@ -3,6 +3,7 @@
 
 {% block content %}
 <h1>Заявки на смены</h1>
+{% if role == 'SHOP_ADMIN' or role == 'SUPER_ADMIN' %}
 <div class="application">
     {% for s in shift_req %}
         <div class="application-item">
@@ -25,4 +26,20 @@
         </div>
     {% endfor %}
 </div>
+{% else %}
+<div class="application">
+    {% for app in my_incoming %}
+        <div class="application-item">
+            <h3>{{ app.worker.name }} хочет отдать вам смену {{ app.shift.date }}</h3>
+            <form action="{% url 'main:confirm_take_shift'%}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="application_id" value="{{ app.id }}">
+                <button type="submit" name="action" value="accept" class="btn btn-sm btn-outline-secondary">Подтвердить</button>
+                <button type="submit" name="action" value="reject" class="btn btn-sm btn-outline-secondary">Отказать</button>
+            </form>
+            <hr>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
 {% endblock content %}

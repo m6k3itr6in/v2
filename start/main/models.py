@@ -73,9 +73,11 @@ class ShopAdmin(models.Model):
         return self.user.username
 
 class Worker(models.Model):
+    HALF_YEAR = 180
+
     name = models.CharField(max_length=50)
     phone_number = EncryptedCharField(max_length=15)
-    experience_years = models.IntegerField(default=0)
+    experience_years = models.FloatField(default=0)
     start_date_experience_years = models.DateField()
     coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers')
     fired_at = models.DateField(null=True, blank=True)
@@ -96,13 +98,15 @@ class Worker(models.Model):
 
     def compute_experience_years(self, as_of=None) -> int:
         if not self.start_date_experience_years:
-            return 0
+            return 0.0
         as_of = as_of or timezone.localdate()
         start = self.start_date_experience_years
-        years = as_of.year - start.year
-        if (as_of.month, as_of.day) < (start.month, start.day):
-            years -= 1
-        return max(0, years)
+        days = (as_of - start).days
+        if days <= 0:
+            return 0.0
+        
+        half_year_periods = days // self.HALF_YEAR
+        return half_year_periods * 0.5
 
     def sync_experience_years(self, as_of=None, save=False) -> bool:
         new_val = self.compute_experience_years(as_of=as_of)
@@ -112,6 +116,18 @@ class Worker(models.Model):
         if save:
             self.save(update_fields=["experience_years"])
         return True
+
+    def get_hourly_rate(self, as_of=None):
+        as_of = as_of or timezone.localdate()
+        if not self.experience_years:
+            return self.coffee_shop.hourly_rate
+
+        days = (as_of - self.start_date_experience_years).days
+        if days < 0:
+            return self.coffee_shop.hourly_rate
+        
+        half_year_period = days // self.HALF_YEAR
+        return self.coffee_shop.hourly_rate + half_year_period * 100
 
     def __str__(self):
         return self.name

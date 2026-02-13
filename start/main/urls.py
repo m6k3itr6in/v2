@@ -19,4 +19,5 @@ urlpatterns = [
     path('managment/assign/', views.assign_shop_admin, name='assign_shop_admin'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.log_out, name='logout'),
+    path('statistics/', views.statistics, name='statistics'),
 ]

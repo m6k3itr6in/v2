@@ -208,11 +208,8 @@ def offer_shift_exchange(request):
 @csrf_protect
 def update_shift(request):
     role = get_user_role(request.user)
-    if role != 'SHOP_ADMIN':
+    if role not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
         return HttpResponseForbidden("You are not admin")
-
-    if role == 'SUPER_ADMIN':
-        return HttpResponseForbidden("Youre super admin")
 
     try:
         data = json.loads(request.body)
@@ -221,7 +218,7 @@ def update_shift(request):
         day = datetime.strptime(data['date'], '%Y-%m-%d').date()
         value = (data.get('value') or '').strip()
 
-        if not ShopAdmin.objects.filter(user=request.user, coffee_shop=target_shop).exists():
+        if role == 'SHOP_ADMIN' and not ShopAdmin.objects.filter(user=request.user, coffee_shop=target_shop).exists():
             return HttpResponseForbidden("Вы не админ этой конкретной кофейни")
     except (KeyError, json.JSONDecodeError, Worker.DoesNotExist, CoffeeShop.DoesNotExist, ValueError):
         return HttpResponseBadRequest('Invalid request')
@@ -398,3 +395,48 @@ def reject_application(request):
     app.save()
 
     return redirect('main:shift_applications')
+
+@login_required
+def statistics(request):
+    role = get_user_role(request.user)
+    if role != 'SUPER_ADMIN':
+        return HttpResponseForbidden('Не админ')
+
+    from_date = request.GET.get('from')
+    to_date = request.GET.get('to')
+
+    if from_date and to_date:
+        date_from = datetime.strptime(from_date, "%Y-%m-%d").date()
+        date_to = datetime.strptime(to_date, "%Y-%m-%d").date()
+    else:
+        today = timezone.localdate()
+        date_from = today.replace(day=1)
+        date_to = today
+
+    shifts = (Shift.objects.select_related('worker', 'coffee_shop').filter(date__gte=date_from, date__lte=date_to))
+
+    shifts_count_by_worker = {}
+    for shift in shifts:
+        shifts_count_by_worker[shift.worker_id] = shifts_count_by_worker.get(shift.worker_id, 0) + 1
+
+    shops = CoffeeShop.objects.prefetch_related('workers')
+
+    stats = []
+    for shop in shops:
+        workers_data = []
+        for worker in shop.workers.all():
+            shifts_count = shifts_count_by_worker.get(worker.id, 0)
+            if shifts_count == 0:
+                continue
+
+            rate = worker.get_hourly_rate(as_of=date_to)
+            total_salary = shifts_count * rate
+            workers_data.append({
+                'worker':worker,
+                'rate':rate,
+                'shifts_count':shifts_count,
+                'total_salary':total_salary,
+            })
+        stats.append({'shop':shop, 'workers':workers_data})
+
+    return render(request, 'main/statistics/statistics.html', {'stats':stats, 'date_from':date_from, 'date_to':date_to})

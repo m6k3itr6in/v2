@@ -1,0 +1,40 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block content %}
+<h2>Статистика зарплат</h2>
+
+<form method="get" class="mb-3">
+    <label>С даты: <input type="date" name="from" value="{{ date_from }}"></label>
+    <label>По дату: <input type="date" name="to" value="{{ date_to }}"></label>
+    <button type="submit">Показать</button>
+</form>
+
+<div class="shops">
+    {% for row in stats %}
+        {% if row.workers %}
+            <hr>
+            <h3>{{ row.shop.name }} (ставка точки: {{ row.shop.hourly_rate }})</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Работник</th>
+                        <th>Ставка</th>
+                        <th>Смен за период</th>
+                        <th>Итого зарплата</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in row.workers %}
+                        <tr>
+                            <td>{{ w.worker.name }}</td>
+                            <td>{{ w.rate }}</td>
+                            <td>{{ w.shifts_count }}</td>
+                            <td>{{ w.total_salary }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endfor %}
+{% endblock content %}

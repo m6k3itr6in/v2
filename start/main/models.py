@@ -78,8 +78,8 @@ class Worker(models.Model):
     name = models.CharField(max_length=50)
     phone_number = EncryptedCharField(max_length=15)
     experience_years = models.FloatField(default=0)
-    start_date_experience_years = models.DateField()
-    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers')
+    start_date_experience_years = models.DateField(blank=True, null=True, default=None)
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='workers', null=True, blank=True)
     fired_at = models.DateField(null=True, blank=True)
     photo = models.ImageField(upload_to='workers/photos/', null=True, blank=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='worker_profile')
@@ -100,6 +100,8 @@ class Worker(models.Model):
         if not self.start_date_experience_years:
             return 0.0
         as_of = as_of or timezone.localdate()
+        if not self.coffee_shop:
+            return 0
         start = self.start_date_experience_years
         days = (as_of - start).days
         if days <= 0:
@@ -140,6 +142,7 @@ class Shift(models.Model):
     another_shop = models.ForeignKey(CoffeeShop, null=True, blank=True, on_delete=models.SET_NULL, related_name='extra_shift')
     is_plus = models.BooleanField(default=False)
     replacement_worker = models.ForeignKey(Worker, null=True, blank=True, on_delete=models.SET_NULL, related_name='replacement_shifts')
+    display_text = models.CharField(max_length=100, blank=True, default='')
 
     class Meta:
         unique_together = ['worker', 'date']

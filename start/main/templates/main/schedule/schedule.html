@@ -32,15 +32,24 @@
                         data-worker-id="{{ row.worker.id }}"
                         data-date="{{ cell.date|date:'Y-m-d' }}"
                         data-readonly="{% if row.worker.coffee_shop_id != shop.id %}1{% else %}0{% endif %}"
-                        {% if cell.is_insufficient %}style="background-color: red;"{% endif %}>
+                        data-has-shift="{% if cell.shift and not cell.shift.display_text %}1{% else %}0{% endif %}"
+                        data-another-shop-id="{% if cell.shift and cell.shift.another_shop %}{{ cell.shift.another_shop.id }}{% endif %}">
                         {% if cell.shift %}
-                            {% if cell.shift.is_plus %}
-                                +
-                            {% elif cell.shift.another_shop %}
-                                {{ cell.shift.another_shop.short_code }}
-                            {% elif cell.shift.start_time %}
-                                {{ cell.shift.start_time|time:'H:i' }}
-                            {% endif %}
+                            {% with s=cell.shift %}
+                                {% if s.display_text %}
+                                    {{ s.display_text }}
+                                {% else %}
+                                    {% if s.start_time %}
+                                        {{ s.start_time|time:'H:i' }}{% if s.another_shop %} {{ s.another_shop.short_code }}{% endif %}{% if s.is_plus %}+{% endif %}
+                                    {% else %}
+                                        {% if s.another_shop %}
+                                            {{ s.another_shop.short_code }}{% if s.is_plus %}+{% endif %}
+                                        {% elif s.is_plus %}
+                                            +
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endwith %}
                         {% endif %}
                     </td>
                 {% endfor %}
@@ -105,6 +114,8 @@
                     <button class="modal-btn-short-codes d-flex">{{ cafe.short_code }}</button>
                 {% endif %}
             {% endfor %}
+
+            <button class="modal-btn d-flex" data-action="free-text">Текст</button>
             <button class="modal-btn d-flex">Выходной</button>
             <button class="modal-btn-back d-flex">Отмена</button>
         </div>
@@ -147,11 +158,7 @@
 
         function updateDayHeaders() {
             const minWorkers = parseInt(tableEl.dataset.minWorkers);
-            const shopCode = tableEl.dataset.shopCode;
-            const otherShopCodes = [];
-            document.querySelectorAll('.modal-btn-short-codes').forEach(btn => {
-                otherShopCodes.push(btn.textContent.trim());
-            });
+            const shopId = tableEl.dataset.shopId;
             
             const dayHeaders = document.querySelectorAll('.day-header');
             dayHeaders.forEach(header => {
@@ -160,8 +167,10 @@
                 let count = 0;
                 
                 cells.forEach(cell => {
-                    const text = cell.textContent.trim();
-                    if (text && text !== '' && (text === shopCode || !otherShopCodes.includes(text))) {
+                    const hasShift = cell.dataset.hasShift === '1';
+                    if (!hasShift) return;
+                    const anotherShopId = cell.dataset.anotherShopId || '';
+                    if (!anotherShopId || anotherShopId === shopId) {
                         count++;
                     }
                 });
@@ -211,6 +220,7 @@
             const btn = event.target.closest('button');
             if (!btn || !currentCell) return;
 
+            const action = btn.dataset.action || '';
             const text = btn.textContent.trim();
 
             if (text === 'Отмена') {
@@ -221,11 +231,75 @@
             if (text === 'Выходной') {
                 currentCell.textContent = '';
                 saveCellValue(currentCell, '').catch(console.error);
-            } else {
-                currentCell.textContent = text;
-                saveCellValue(currentCell, text).catch(console.error);
+                modal.style.display = 'none';
+                return;
             }
 
+            if (action === 'free-text') {
+                const current = currentCell.textContent.trim();
+                const userText = prompt('Введите произвольный текст для этой смены', current);
+                if (userText !== null) {
+                    const value = userText.trim();
+                    currentCell.textContent = value;
+                    saveCellValue(currentCell, value).catch(console.error);
+                }
+                modal.style.display = 'none';
+                return;
+            }
+
+            let currentText = currentCell.textContent.trim();
+            let tokens = currentText.split(/\s+/).filter(Boolean);
+
+            const isTime = /^\\d{1,2}:\\d{2}$/.test(text);
+            const isPlus = text === '+';
+
+            if (isPlus) {
+                if (currentText.endsWith('+')) {
+                    currentText = currentText.replace(/\+$/, '').trim();
+                } else {
+                    currentText = (currentText + ' +').trim().replace(/\s*\+$/, '+');
+                }
+            } else if (isTime) {
+                if (tokens.length === 0) {
+                    tokens = [text];
+                } else {
+                    if (/^\d{1,2}:\d{2}$/.test(tokens[0])) {
+                        tokens[0] = text;
+                    } else {
+                        tokens.unshift(text);
+                    }
+                }
+                currentText = tokens.join(' ');
+            } else {
+                let hasPlus = false;
+                if (currentText.endsWith('+')) {
+                    hasPlus = true;
+                    currentText = currentText.replace(/\+$/, '').trim();
+                }
+                tokens = currentText.split(/\s+/).filter(Boolean);
+                if (tokens.length === 0) {
+                    tokens = [text];
+                } else if (tokens.length === 1) {
+                    if (/^\d{1,2}:\d{2}$/.test(tokens[0])) {
+                        tokens.push(text);
+                    } else {
+                        tokens[0] = text;
+                    }
+                } else {
+                    if (/^\d{1,2}:\d{2}$/.test(tokens[0])) {
+                        tokens[1] = text;
+                    } else {
+                        tokens[0] = text;
+                    }
+                }
+                currentText = tokens.join(' ');
+                if (hasPlus) {
+                    currentText = (currentText + '+').trim();
+                }
+            }
+
+            currentCell.textContent = currentText;
+            saveCellValue(currentCell, currentText).catch(console.error);
             modal.style.display = 'none';
         });
 
@@ -235,5 +309,32 @@
             }
         });
     });
+
+    function updateDayHeaders() {
+        const minWorkers = parseInt(tableEl.dataset.minWorkers);
+        const shopId = tableEl.dataset.shopId;
+    
+        const dayHeaders = document.querySelectorAll('.day-header');
+        dayHeaders.forEach(header => {
+            const date = header.dataset.date;
+            const cells = document.querySelectorAll(`.schedule-cell[data-date="${date}"]`);
+            let count = 0;
+    
+            cells.forEach(cell => {
+                const hasShift = cell.dataset.hasShift === '1';
+                if (!hasShift) return;  // подписи не считаем
+                const anotherShopId = cell.dataset.anotherShopId || '';
+                if (!anotherShopId || anotherShopId === shopId) {
+                    count++;
+                }
+            });
+    
+            if (count < minWorkers) {
+                header.style.backgroundColor = '#F08080';
+            } else {
+                header.style.backgroundColor = '';
+            }
+        });
+    }
 </script>
 {% endblock content %}

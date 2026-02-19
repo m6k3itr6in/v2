@@ -13,7 +13,7 @@ from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbid
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from functools import wraps
-from .forms import WorkerCreationForm, AssignmentForm
+from .forms import WorkerCreationForm, AssignmentForm, WorkerSelfRegistrationForm
 
 def get_user_profile(user):
     if not user.is_authenticated:
@@ -52,10 +52,12 @@ def index(request):
     if role == 'SHOP_ADMIN':
         admin_shops = ShopAdmin.objects.filter(user=request.user).values_list('coffee_shop_id', flat=True)
         cafes = CoffeeShop.objects.filter(id__in=admin_shops)
-        return render(request, 'main/index/index.html', {'cafes':cafes})
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
 
-    cafes = CoffeeShop.objects.all()
-    return render(request, 'main/index/index.html', {'cafes':cafes})
+    worker = Worker.objects.filter(user=request.user).first()
+    if role == 'WORKER' and (worker is None or worker.coffee_shop_id is None):
+        return render(request, 'main/index/index.html', {'cafes': [], 'show_cafes': False})
+    return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
 
 def get_workers(request, slug):
     shop = get_object_or_404(CoffeeShop, slug=slug)
@@ -216,35 +218,62 @@ def update_shift(request):
         worker = Worker.objects.get(id=data['worker_id'])
         target_shop = CoffeeShop.objects.get(id=data['coffee_shop_id'])
         day = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        value = (data.get('value') or '').strip()
+        raw_value = (data.get('value') or '').strip()
 
         if role == 'SHOP_ADMIN' and not ShopAdmin.objects.filter(user=request.user, coffee_shop=target_shop).exists():
             return HttpResponseForbidden("Вы не админ этой конкретной кофейни")
     except (KeyError, json.JSONDecodeError, Worker.DoesNotExist, CoffeeShop.DoesNotExist, ValueError):
         return HttpResponseBadRequest('Invalid request')
 
+    if not raw_value or raw_value.lower() in ('выходной', 'off', 'none'):
+        Shift.objects.filter(worker=worker, date=day).delete()
+        return JsonResponse({'ok':True})
+
     if worker.coffee_shop_id != target_shop.id:
         return HttpResponseForbidden('Нельзя менять график работника в чужой кофейне')
 
-    if not value or value.lower() in ('выходной', 'off', 'none'):
-        Shift.objects.filter(worker=worker, date=day).delete()
-        return JsonResponse({'ok': True})
+    defaults = {'coffee_shop': worker.coffee_shop, 'start_time': None, 'another_shop': None, 'is_plus': False, 'display_text':'',}
 
-    defaults = {'coffee_shop': worker.coffee_shop, 'start_time': None, 'another_shop': None, 'is_plus': False}
+    value = raw_value
+    parsed_structured = False
 
-    if value == '+':
+    if '+' in value:
         defaults['is_plus'] = True
-    elif ':' in value:
+        value = value.replace('+','').strip()
+
+    tokens = value.split()
+    time_part = None
+    shop_code = None
+
+    if tokens:
+        if ':' in tokens[0]:
+            try:
+                time_part = datetime.strptime(tokens[0], '%H:%M').time()
+                parsed_structured = True
+            except ValueError:
+                time_part = None
+        else:
+            shop_code = tokens[0]
+            
+        if time_part and len(tokens) > 1:
+            shop_code = tokens[1]
+
+    if time_part:
+        defaults['start_time'] = time_part
+
+    if shop_code:
         try:
-            defaults['start_time'] = datetime.strptime(value, '%H:%M').time()
-        except ValueError:
-            return HttpResponseBadRequest('Invalid time')
-    else:
-        try:
-            another_shop = CoffeeShop.objects.get(short_code=value)
+            another_shop = CoffeeShop.objects.get(short_code=shop_code)
             defaults['another_shop'] = another_shop
+            parsed_structured = True
         except CoffeeShop.DoesNotExist:
-            return HttpResponseBadRequest('Unknown value')
+            defaults['another_shop'] = None
+
+    if not parsed_structured and not defaults['is_plus']:
+        defaults['display_text'] = raw_value
+        defaults['start_time'] = None
+        defaults['another_shop'] = None
+        defaults['is_plus'] = False
 
     Shift.objects.update_or_create(worker=worker, date=day, defaults=defaults)
     return JsonResponse({'ok': True})
@@ -265,9 +294,6 @@ def add_worker(request):
     if request.method == 'POST':
         form = WorkerCreationForm(request.POST)
         if form.is_valid():
-            form.save(shop=shop)
-
-            messages.success(request, 'Сотрудник добавлен')
             return redirect('main:schedule', slug=shop.slug, year=timezone.now().year, month=timezone.now().month)
     else:
         form = WorkerCreationForm()
@@ -413,11 +439,15 @@ def statistics(request):
         date_from = today.replace(day=1)
         date_to = today
 
-    shifts = (Shift.objects.select_related('worker', 'coffee_shop').filter(date__gte=date_from, date__lte=date_to))
+    shifts = (Shift.objects.select_related('worker', 'coffee_shop', 'another_shop').filter(date__gte=date_from, date__lte=date_to))
 
-    shifts_count_by_worker = {}
+    PLUS_BONUS = 500
+    
+    shifts_by_worker = {}
     for shift in shifts:
-        shifts_count_by_worker[shift.worker_id] = shifts_count_by_worker.get(shift.worker_id, 0) + 1
+        if getattr(shift, 'display_text', '').strip():
+            continue
+        shifts_by_worker.setdefault(shift.worker_id, []).append(shift)
 
     shops = CoffeeShop.objects.prefetch_related('workers')
 
@@ -425,18 +455,48 @@ def statistics(request):
     for shop in shops:
         workers_data = []
         for worker in shop.workers.all():
-            shifts_count = shifts_count_by_worker.get(worker.id, 0)
-            if shifts_count == 0:
+            worker_shifts = shifts_by_worker.get(worker.id, [])
+            if not worker_shifts:
                 continue
 
+            shifts_count = len(worker_shifts)
+            plus_count = sum(1 for s in worker_shifts if getattr(s, 'is_plus', False))
             rate = worker.get_hourly_rate(as_of=date_to)
-            total_salary = shifts_count * rate
+            total_salary = 0
+            if worker.start_date_experience_years:
+                days = (date_to - worker.start_date_experience_years).days
+                half_year_period = max(0, days // worker.HALF_YEAR)
+                experience_bonus = half_year_period * 100
+            else:
+                experience_bonus = 0
+
+            for s in worker_shifts:
+                base_shop = s.another_shop or s.coffee_shop
+                if not base_shop:
+                    continue
+                base_rate = base_shop.hourly_rate + experience_bonus
+                if getattr(s, 'is_plus', False):
+                    base_rate += PLUS_BONUS
+                total_salary += base_rate
+
             workers_data.append({
-                'worker':worker,
-                'rate':rate,
-                'shifts_count':shifts_count,
-                'total_salary':total_salary,
+                'worker': worker,
+                'rate': rate,
+                'shifts_count': shifts_count,
+                'plus_shifts_count': plus_count,
+                'total_salary': total_salary,
             })
         stats.append({'shop':shop, 'workers':workers_data})
 
     return render(request, 'main/statistics/statistics.html', {'stats':stats, 'date_from':date_from, 'date_to':date_to})
+
+def register_view(request):
+    if request.method == 'POST':
+        form = WorkerSelfRegistrationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('main:index')
+    else:
+        form = WorkerSelfRegistrationForm()
+
+    return render(request, 'main/register/register.html', {'form':form})

@@ -1,0 +1,25 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block content %}
+    <div class="form">
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <h5>Введите логин: {{ form.username }}</h5>
+                {% if form.username.errors %}<div class="text-danger">{{ form.username.errors }}</div>{% endif %}
+                <h5>Введите имя и фамилию: {{ form.name }}</h5>
+                {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
+                <h5>Телефон: {{ form.phone_number }}</h5>
+                {% if form.phone_number.errors %}<div class="text-danger">{{ form.phone_number.errors }}</div>{% endif %}
+                <h5>Пароль: {{ form.password }}</h5>
+                {% if form.password.errors %}<div class="text-danger">{{ form.password.errors }}</div>{% endif %}
+                <h5>Повторите пароль: {{ form.password_confirm }}</h5>
+                {% if form.password_confirm.errors %}<div class="text-danger">{{ form.password_confirm.errors }}</div>{% endif %}
+            </div>
+            {% if form.non_field_errors %}<div class="text-danger">{{ form.non_field_errors }}</div>{% endif %}
+            
+            <button type="submit" style="margin-top: 10px;">Назначить</button>
+        </form>
+    </div>
+{% endblock content %}

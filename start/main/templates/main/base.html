@@ -7,38 +7,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock title %}</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile.css' %}">
+
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="CoffeeApp">
+    <link rel="apple-touch-icon" href="{% static 'images/icon-192.png' %}">
 </head>
 
 <body>
-    <header class="header sticky-top d-flex align-items-center">
-        <div class="container d-flex align-items-center justify-content-between py-2">
-            <a class="btn btn-sm btn-outline-dark" href="{% url 'main:index' %}">Главная</a>
-            {% if user.is_superuser %}
-            <div class="d-flex align-items-center gap-2">
-                <a class="btn btn-sm btn-outline-dark" href="{% url 'admin:index' %}">Админка</a>
-                <a class="btn btn-sm btn-primary" href="{% url 'main:assign_shop_admin' %}">Назначить управляющих</a>
-                <a class="btn btn-sm btn-primary" href="{% url 'main:statistics'%}">Зарплаты</a>
+    {% if user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg sticky-top mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'main:index' %}">CoffeeApp</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'main:index' %}">Главная</a>
+                    </li>
+                    {% if user_role == 'SUPER_ADMIN' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'admin:index' %}">Админка</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'main:assign_shop_admin' %}">Управляющие</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'main:statistics'%}">Зарплаты</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Заявки</a>
+                        </li>
+                    {% elif user_role == 'SHOP_ADMIN' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'main:statistics'%}">Зарплаты</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Заявки</a>
+                        </li>
+                    {% endif %}
+                </ul>
+                <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0">
+                    <span class="text-muted d-none d-lg-inline">{{ user.username }}</span>
+                    <a class="btn btn-sm btn-outline-danger" href="{% url 'main:logout' %}">Выйти</a>
+                </div>
             </div>
-            {% endif %}
-            {% if user.is_authenticated %}
-            <a>{{ user.username }}</a>
-            <a class="btn btn-sm btn-primary" href="{% url 'main:logout' %}">Выйти</a>
-            {% else %}
-            <div class="auth">
-                <a class="btn btn-sm btn-primary" href="{% url 'main:login' %}">Войти</a>
-                <a class="btn btn-sm btn-outline-dark" href="{% url 'main:register' %}">Регистрация</a>
-            </div>
-            {% endif %}
         </div>
-    </header>
+    </nav>
+    {% endif %}
     <div class="container">
         {% block content %}{% endblock content %}
     </div>
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+            navigator.serviceWorker.register("{% static 'js/sw.js' %}")
+                .then(reg => console.log('Service Worker registered!'))
+                .catch(err => console.log('Registration failed: ', err));
+            });
+        }
+    </script>
 </body>
 
 </html>

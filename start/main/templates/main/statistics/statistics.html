@@ -15,12 +15,14 @@
         {% if row.workers %}
             <hr>
             <h3>{{ row.shop.name }} (ставка точки: {{ row.shop.hourly_rate }})</h3>
+            <div class="table-responsive-mobile">
             <table class="table">
                 <thead>
                     <tr>
                         <th>Работник</th>
                         <th>Ставка</th>
                         <th>Смен за период</th>
+                        <th>Расшифровка</th>
                         <th>Итого зарплата</th>
                     </tr>
                 </thead>
@@ -30,11 +32,13 @@
                             <td>{{ w.worker.name }}</td>
                             <td>{{ w.rate }}</td>
                             <td>{{ w.shifts_count }}</td>
+                            <td>{{ w.breakdown }}</td>
                             <td>{{ w.total_salary }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         {% endif %}
     {% endfor %}
 {% endblock content %}

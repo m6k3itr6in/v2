@@ -20,7 +20,7 @@ class WorkerSelfRegistrationForm(forms.Form):
             self.add_error('username', 'Такой логин уже занят')
         return cleaned
 
-    def save(self, commit=False):
+    def save(self, commit=True):
         user = User.objects.create_user(
             username=self.cleaned_data['username'],
             password=self.cleaned_data['password'],
@@ -36,7 +36,7 @@ class WorkerSelfRegistrationForm(forms.Form):
 
         if commit:
             worker.save()
-            UserProfile.objects.create_user(user=user, role='WORKER')
+            UserProfile.objects.create(user=user, role='WORKER')
         return worker
 
 class WorkerCreationForm(forms.ModelForm):

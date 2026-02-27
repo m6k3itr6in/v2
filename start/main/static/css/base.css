@@ -15,7 +15,7 @@
     background: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     max-height: 90vh;
     overflow-y: auto;
 }
@@ -27,7 +27,9 @@
     align-items: center;
 }
 
-.modal-btn, .modal-btn-back, .modal-btn-short-codes {
+.modal-btn,
+.modal-btn-back,
+.modal-btn-short-codes {
     width: 120px;
     padding: 10px;
     border: 1px solid #ccc;
@@ -37,7 +39,9 @@
     text-align: center;
 }
 
-.modal-btn:hover, .modal-btn-back:hover, .modal-btn-short-codes:hover {
+.modal-btn:hover,
+.modal-btn-back:hover,
+.modal-btn-short-codes:hover {
     background: #e0e0e0;
 }
 
@@ -50,10 +54,11 @@
     width: 96px;
     height: 96px;
     border-radius: 16px;
-    object-fit: cover; /* режет по центру, не растягивает */
+    object-fit: cover;
+    /* режет по центру, не растягивает */
     object-position: center;
     display: block;
-    border: 1px solid rgba(0,0,0,0.12);
+    border: 1px solid rgba(0, 0, 0, 0.12);
     background: #f2f2f2;
 }
 
@@ -84,6 +89,42 @@
     font-size: 50px;
 }
 
+/* Premium Header & Navbar */
+.navbar {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    padding: 0.8rem 1rem;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    color: #333 !important;
+    letter-spacing: -0.5px;
+}
+
+.nav-link {
+    color: #555 !important;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #000 !important;
+}
+
+.navbar-toggler {
+    border: none;
+    padding: 0;
+}
+
+.navbar-toggler:focus {
+    box-shadow: none;
+}
+
+/* Applications list */
 .applications {
     display: flex;
     flex-direction: column;

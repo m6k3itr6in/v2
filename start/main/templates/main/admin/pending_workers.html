@@ -1,0 +1,45 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block content %}
+    <h2>Новые регистрации</h2>
+
+    {% if pending_workers %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Имя</th>
+                    <th>Фамилия</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for worker in pending_workers %}
+                <tr>
+                    <td>{{ worker.name }}</td>
+                    <td>{{ worker.phone_number }}</td>
+                    <td>
+                        <form action="{% url 'main:approve_worker' worker.id %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <select name="shop_id" required>
+                                <option value="">Выберите точку:</option>
+                                {% for cafe in cafes %}
+                                <option value="{{ cafe.id }}">{{ cafe.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-success">Одобрить</button>
+                        </form>
+
+                        <form action="{% url 'main:reject_worker' worker.id %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Удалить пользователя?')">Отклонить</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>        
+    {% else %}
+        <p>Нет новых регистраций</p>
+    {% endif %}
+{% endblock content %}

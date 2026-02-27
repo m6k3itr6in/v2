@@ -54,7 +54,12 @@ def index(request):
         cafes = CoffeeShop.objects.filter(id__in=admin_shops)
         return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
 
+    if not request.user.is_authenticated:
+        cafes = CoffeeShop.objects.all()
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False})
+
     worker = Worker.objects.filter(user=request.user).first()
+    cafes = CoffeeShop.objects.all()
     if role == 'WORKER' and (worker is None or worker.coffee_shop_id is None):
         return render(request, 'main/index/index.html', {'cafes': [], 'show_cafes': False})
     return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
@@ -279,29 +284,6 @@ def update_shift(request):
     return JsonResponse({'ok': True})
 
 @login_required
-def add_worker(request):
-    role = get_user_role(request.user)
-    if role != 'SHOP_ADMIN' and role != 'SUPER_ADMIN':
-        return HttpResponseForbidden("Вы не админ")
-
-    admin_relation = ShopAdmin.objects.filter(user=request.user).first()
-
-    if not admin_relation:
-        return HttpResponseForbidden("Нет привязанной кофейни")
-
-    shop = admin_relation.coffee_shop
-
-    if request.method == 'POST':
-        form = WorkerCreationForm(request.POST)
-        if form.is_valid():
-            return redirect('main:schedule', slug=shop.slug, year=timezone.now().year, month=timezone.now().month)
-    else:
-        form = WorkerCreationForm()
-
-    return render(request, 'main/workers/add_worker.html', {'form':form, 'shop':shop})
-
-
-@login_required
 def assign_shop_admin(request):
     role = get_user_role(request.user)
 
@@ -425,7 +407,7 @@ def reject_application(request):
 @login_required
 def statistics(request):
     role = get_user_role(request.user)
-    if role != 'SUPER_ADMIN':
+    if role != 'SUPER_ADMIN' and role != 'SHOP_ADMIN':
         return HttpResponseForbidden('Не админ')
 
     from_date = request.GET.get('from')
@@ -461,6 +443,19 @@ def statistics(request):
 
             shifts_count = len(worker_shifts)
             plus_count = sum(1 for s in worker_shifts if getattr(s, 'is_plus', False))
+            
+            shop_breakdown = {}
+            for s in worker_shifts:
+                shop_code = (s.another_shop.short_code if s.another_shop else s.coffee_shop.short_code)
+                shop_breakdown[shop_code] = shop_breakdown.get(shop_code, 0) + 1
+            
+            breakdown_parts = [f"{count} {code}" for code, count in shop_breakdown.items()]
+            if plus_count > 0:
+                plus_str = "+" * plus_count
+                breakdown_parts.append(f"({plus_str})")
+            
+            breakdown_display = " + ".join(breakdown_parts)
+
             rate = worker.get_hourly_rate(as_of=date_to)
             total_salary = 0
             if worker.start_date_experience_years:
@@ -484,6 +479,7 @@ def statistics(request):
                 'rate': rate,
                 'shifts_count': shifts_count,
                 'plus_shifts_count': plus_count,
+                'breakdown': breakdown_display,
                 'total_salary': total_salary,
             })
         stats.append({'shop':shop, 'workers':workers_data})
@@ -500,3 +496,45 @@ def register_view(request):
         form = WorkerSelfRegistrationForm()
 
     return render(request, 'main/register/register.html', {'form':form})
+
+
+@login_required
+def pending_registrations(request):
+    role = get_user_role(request.user)
+    if role not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        return HttpResponseForbidden('Не админ')
+    
+    pending_workers = Worker.objects.filter(coffee_shop__isnull=True)
+    cafes = CoffeeShop.objects.all()
+    return render(request, 'main/admin/pending_workers.html', {'pending_workers':pending_workers, 'cafes':cafes})
+
+@login_required
+@require_POST
+def approve_worker(request, worker_id):
+    if get_user_role(request.user) not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        return HttpResponseForbidden('Вы не админ')
+
+    worker = get_object_or_404(Worker, id=worker_id)
+    shop_id = request.POST.get('shop_id')
+
+    if shop_id:
+        worker.coffee_shop_id = shop_id
+        worker.start_date_experience_years = timezone.now().date()
+        worker.save()
+    
+    return redirect('main:pending_registrations')
+
+@login_required
+@require_POST
+def reject_worker(request, worker_id):
+    if get_user_role(request.user) not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        return HttpResponseForbidden('Вы не админ')
+
+    worker = get_object_or_404(Worker, id=worker_id)
+    user = worker.user
+    
+    worker.delete()
+    if user:
+        user.delete()
+
+    return redirect('main:pending_registrations')

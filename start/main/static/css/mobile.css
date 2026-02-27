@@ -1,0 +1,79 @@
+/* Mobile-friendly adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* Schedule table specific */
+    .schedule-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+    }
+
+    #scheduleTable {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    /* Fixed Column Logic */
+    #scheduleTable th:first-child,
+    #scheduleTable td:first-child {
+        position: -webkit-sticky;
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        background-color: #fff;
+        /* Ensure it's not transparent */
+        border-right: 2px solid #dee2e6;
+        min-width: 100px;
+        max-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #scheduleTable thead th:first-child {
+        z-index: 6;
+        /* Higher than td */
+    }
+
+    .navbar-toggler-icon {
+        background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(0,0,0, 0.7)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 8h24M4 16h24M4 24h24'/%3E%3C/svg%3E") !important;
+    }
+
+    /* Home page scaling */
+    .cafe-name-a {
+        font-size: 2rem !important;
+    }
+
+    .cafes-in {
+        margin-top: 20px !important;
+    }
+
+    /* General responsive table wrapper */
+    .table-responsive-mobile {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* General improvements */
+.schedule-cell {
+    min-width: 45px;
+    text-align: center;
+    vertical-align: middle !important;
+    height: 45px;
+    padding: 2px !important;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.day-header {
+    min-width: 45px;
+    text-align: center;
+}

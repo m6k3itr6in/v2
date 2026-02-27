@@ -15,8 +15,12 @@
             <label>Пароль</label>
             <input type="password" name="password" class="form-control" required>
         </div>
-
-        <button type="submit">Войти</button>
+        <br>
+        <button type="submit" class="btn btn-primary">Войти</button>
     </form>
+    <div class="mt-3">
+        <span>Нет аккаунта?</span>
+        <a href="{% url 'main:register' %}" class="btn btn-sm btn-outline-secondary">Регистрация</a>
+    </div>
 </div>
 {% endblock %}

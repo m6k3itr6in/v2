@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{% static 'css/mobile.css' %}">
 
     <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="CoffeeApp">
@@ -51,6 +52,7 @@
                     {% endif %}
                 </ul>
                 <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0">
+                    <button id="push-btn" class="btn btn-sm btn-outline-primary" onclick="subscribeUser()" style="display: none;">🔔 Уведомления</button>
                     <span class="text-muted d-none d-lg-inline">{{ user.username }}</span>
                     <a class="btn btn-sm btn-outline-danger" href="{% url 'main:logout' %}">Выйти</a>
                 </div>
@@ -64,32 +66,109 @@
 
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script>
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function subscribeUser(registration) {
+            console.log('Inside subscribeUser');
+            const pushBtn = document.getElementById('push-btn');
+            if (pushBtn) {
+                pushBtn.disabled = true;
+                pushBtn.innerText = '⌛ Ждите...';
+            }
+            
+            if (!('serviceWorker' in navigator)) {
+                console.log('Service Worker not supported');
+                if (pushBtn) pushBtn.innerText = '❌ Не подд.';
+                return;
+            }
+
+            try {
+                if (!registration) {
+                    console.log('Checking global swReg...');
+                    registration = window.swReg;
+                }
+                
+                if (!registration) {
+                    console.log('No registration, waiting for ready...');
+                    registration = await navigator.serviceWorker.ready;
+                }
+                
+                console.log('Registration active:', registration);
+
+                const VAPID_PUBLIC_KEY = '{{ vapid_public_key }}';
+                if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY === 'None') {
+                    console.error('VAPID key is missing');
+                    if (pushBtn) pushBtn.innerText = '❌ Ключ!';
+                    return;
+                }
+
+                const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+                
+                console.log('Requesting subscription...');
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+                console.log('Subscription received:', subscription);
+
+                const response = await fetch('/save-subscription/', {
+                    method: 'POST',
+                    body: JSON.stringify(subscription),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log('Subscription saved on server');
+                    if (pushBtn) {
+                        pushBtn.innerText = '✅ Включено';
+                        setTimeout(() => pushBtn.style.display = 'none', 2000);
+                    }
+                } else {
+                    console.error('Server error:', response.status);
+                    if (pushBtn) {
+                        pushBtn.disabled = false;
+                        pushBtn.innerText = '❌ Ошибка ' + response.status;
+                    }
+                }
+            } catch (err) {
+                console.error('Subscription error caught:', err);
+                if (pushBtn) {
+                    pushBtn.disabled = false;
+                    pushBtn.innerText = '❌ Ошибка';
+                    alert('Ошибка: ' + err.name + ': ' + err.message);
+                }
+            }
+        }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-            navigator.serviceWorker.register("{% static 'js/sw.js' %}")
-                .then(reg => console.log('Service Worker registered!'))
-                .catch(err => console.log('Registration failed: ', err));
-            });
-        }
+                navigator.serviceWorker.register("{% static 'js/sw.js' %}")
+                    .then(async reg => {
+                        console.log('Service Worker registered!');
+                        window.swReg = reg;
+                        const pushBtn = document.getElementById('push-btn');
+                        if (!pushBtn) return;
 
-        const VAPID_PUBLIC_KEY = '{{ vapid_public_key }}';
-
-        async function subscribeUser() {
-            const registration = await navigator.serviceWorker.register('/static/js/sw.js');
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: VAPID_PUBLIC_KEY
+                        const subscription = await reg.pushManager.getSubscription();
+                        if (!subscription && Notification.permission !== 'denied') {
+                            pushBtn.style.display = 'block';
+                        }
+                    });
             });
-            await fetch('/save-subscription/', {
-                method: 'POST',
-                body: JSON.stringify(subscription),
-                headers: {
-                    'Content-Type': 'application/json'}
-            });
-        }
-
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            subscribeUser();
         }
     </script>
 </body>

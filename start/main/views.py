@@ -46,20 +46,19 @@ def sync_workers_experience_years(workers):
 
 def index(request):
     role = get_user_role(request.user)
-    vapid_key = getattr(settings, 'WEBPUSH_VAPID_PUBLIC_KEY', None)
 
     if role == 'SUPER_ADMIN':
         cafes = CoffeeShop.objects.all()
-        return render(request, 'main/index/super_admin_index.html', {'cafes': cafes, 'vapid_public_key': vapid_key})
+        return render(request, 'main/index/super_admin_index.html', {'cafes': cafes})
     
     if role == 'SHOP_ADMIN':
         admin_shops = ShopAdmin.objects.filter(user=request.user).values_list('coffee_shop_id', flat=True)
         cafes = CoffeeShop.objects.filter(id__in=admin_shops)
-        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True, 'vapid_public_key': vapid_key})
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
 
     if not request.user.is_authenticated:
         cafes = CoffeeShop.objects.all()
-        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False, 'vapid_public_key': vapid_key})
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False})
 
     worker = Worker.objects.filter(user=request.user).first()
     cafes = CoffeeShop.objects.all()
@@ -68,7 +67,6 @@ def index(request):
     return render(request, 'main/index/index.html', {
         'cafes': cafes if show_cafes else [],
         'show_cafes': show_cafes,
-        'vapid_public_key': vapid_key
     })
 
 def get_workers(request, slug):
@@ -502,7 +500,7 @@ def register_view(request):
     else:
         form = WorkerSelfRegistrationForm()
 
-    return render(request, 'main/register/register.html', {'form':form, 'vapid_public_key': settings.WEBPUSH_VAPID_PUBLIC_KEY})
+    return render(request, 'main/register/register.html', {'form':form})
 
 
 @login_required

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coffee-app-v1';
+const CACHE_NAME = 'coffee-app-v2';
 const urlsToCache = [
     '/',
     '/static/css/base.css',
@@ -24,8 +24,8 @@ self.addEventListener('push', function (event) {
     const data = event.data.json();
     const options = {
         body: data.body,
-        icon: 'static/images/icon-192.png',
-        badge: 'static/images/icon-192.png',
+        icon: '/static/images/icon-192.png',
+        badge: '/static/images/icon-192.png',
         data: {
             url: data.url
         }

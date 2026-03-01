@@ -188,3 +188,11 @@ class ShiftRequest(models.Model):
     
     def __str__(self):
         return self.worker.name
+
+
+class PushSubscriptions(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_subs')
+    endpoint = models.URLField(max_length=500, unique=True)
+    auth = models.CharField(max_length=100)
+    p256dh = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)

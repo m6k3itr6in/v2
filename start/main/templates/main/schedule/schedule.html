@@ -4,6 +4,24 @@
 {% block title %}Расписание{% endblock title %}
 
 {% block content %}
+<style>
+    @media (max-width: 768px) {
+        #scheduleTable {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+            border-left: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+        #scheduleTable th, #scheduleTable td {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+            border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+    }
+</style>
+<div class="mb-3">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'main:workers' shop.slug %}">Назад к
+        списку</a>
+</div>
 <h2>График: {{ shop.name }} — {{ month }} / {{ year }}</h2>
 <div class="mb-3" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
     <a href="{% url 'main:schedule' shop.slug prev_year prev_month %}" class="btn btn-sm btn-outline-primary">&lt; Предыдущий</a>
@@ -11,7 +29,7 @@
     <button id="goTodayBtn" class="btn btn-sm btn-secondary" type="button">Сегодня</button>
 </div>
 <div class="schedule-container">
-<table border="1" class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}" data-min-workers="{{ min_workers }}" data-shop-code="{{ shop.short_code }}">
+<table class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}" data-min-workers="{{ min_workers }}" data-shop-code="{{ shop.short_code }}">
     <thead>
         <tr>
             <th>Работник</th>
@@ -324,7 +342,7 @@
     
             cells.forEach(cell => {
                 const hasShift = cell.dataset.hasShift === '1';
-                if (!hasShift) return;  // подписи не считаем
+                if (!hasShift) return;
                 const anotherShopId = cell.dataset.anotherShopId || '';
                 if (!anotherShopId || anotherShopId === shopId) {
                     count++;

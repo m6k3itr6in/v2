@@ -20,6 +20,7 @@ urlpatterns = [
     path('logout/', views.log_out, name='logout'),
     path('statistics/', views.statistics, name='statistics'),
     path('register/', views.register_view, name='register'),
+    path('save-subscription/', views.save_push_subscription, name='save_push_subscription'),
     path('managment/pending/', views.pending_registrations, name='pending_registrations'),
     path('managment/approve/<int:worker_id>/', views.approve_worker, name='approve_worker'),
     path('managment/reject/<int:worker_id>/', views.reject_worker, name='reject_worker'),

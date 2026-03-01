@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest
+from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest, PushSubscriptions
 from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Q
@@ -14,6 +14,8 @@ from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from functools import wraps
 from .forms import WorkerCreationForm, AssignmentForm, WorkerSelfRegistrationForm
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 
 def get_user_profile(user):
     if not user.is_authenticated:
@@ -44,25 +46,30 @@ def sync_workers_experience_years(workers):
 
 def index(request):
     role = get_user_role(request.user)
+    vapid_key = getattr(settings, 'WEBPUSH_VAPID_PUBLIC_KEY', None)
 
     if role == 'SUPER_ADMIN':
         cafes = CoffeeShop.objects.all()
-        return render(request, 'main/index/super_admin_index.html', {'cafes':cafes})
+        return render(request, 'main/index/super_admin_index.html', {'cafes': cafes, 'vapid_public_key': vapid_key})
     
     if role == 'SHOP_ADMIN':
         admin_shops = ShopAdmin.objects.filter(user=request.user).values_list('coffee_shop_id', flat=True)
         cafes = CoffeeShop.objects.filter(id__in=admin_shops)
-        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True, 'vapid_public_key': vapid_key})
 
     if not request.user.is_authenticated:
         cafes = CoffeeShop.objects.all()
-        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False})
+        return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False, 'vapid_public_key': vapid_key})
 
     worker = Worker.objects.filter(user=request.user).first()
     cafes = CoffeeShop.objects.all()
-    if role == 'WORKER' and (worker is None or worker.coffee_shop_id is None):
-        return render(request, 'main/index/index.html', {'cafes': [], 'show_cafes': False})
-    return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
+    show_cafes = (worker is not None and worker.coffee_shop_id is not None)
+    
+    return render(request, 'main/index/index.html', {
+        'cafes': cafes if show_cafes else [],
+        'show_cafes': show_cafes,
+        'vapid_public_key': vapid_key
+    })
 
 def get_workers(request, slug):
     shop = get_object_or_404(CoffeeShop, slug=slug)
@@ -495,7 +502,7 @@ def register_view(request):
     else:
         form = WorkerSelfRegistrationForm()
 
-    return render(request, 'main/register/register.html', {'form':form})
+    return render(request, 'main/register/register.html', {'form':form, 'vapid_public_key': settings.WEBPUSH_VAPID_PUBLIC_KEY})
 
 
 @login_required
@@ -538,3 +545,16 @@ def reject_worker(request, worker_id):
         user.delete()
 
     return redirect('main:pending_registrations')
+
+
+@csrf_exempt
+@login_required
+def save_push_subscription(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        PushSubscriptions.objects.update_or_create(endpoint=data['endpoint'], defaults={
+            'user': request.user,
+            'auth': data['keys']['auth'],
+            'p256dh': data['keys']['p256dh'],
+        })
+    return JsonResponse({'ok': True})

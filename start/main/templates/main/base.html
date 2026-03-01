@@ -28,9 +28,6 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'main:index' %}">Главная</a>
-                    </li>
                     {% if user_role == 'SUPER_ADMIN' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'admin:index' %}">Админка</a>
@@ -42,14 +39,14 @@
                             <a class="nav-link" href="{% url 'main:statistics'%}">Зарплаты</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Заявки</a>
+                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Регистрации</a>
                         </li>
                     {% elif user_role == 'SHOP_ADMIN' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'main:statistics'%}">Зарплаты</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Заявки</a>
+                            <a class="nav-link" href="{% url 'main:pending_registrations'%}">Регистрации</a>
                         </li>
                     {% endif %}
                 </ul>
@@ -73,6 +70,26 @@
                 .then(reg => console.log('Service Worker registered!'))
                 .catch(err => console.log('Registration failed: ', err));
             });
+        }
+
+        const VAPID_PUBLIC_KEY = '{{ vapid_public_key }}';
+
+        async function subscribeUser() {
+            const registration = await navigator.serviceWorker.register('/static/js/sw.js');
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VAPID_PUBLIC_KEY
+            });
+            await fetch('/save-subscription/', {
+                method: 'POST',
+                body: JSON.stringify(subscription),
+                headers: {
+                    'Content-Type': 'application/json'}
+            });
+        }
+
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            subscribeUser();
         }
     </script>
 </body>

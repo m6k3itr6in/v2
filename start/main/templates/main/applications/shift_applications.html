@@ -2,9 +2,10 @@
 {% load static %}
 
 {% block content %}
-<h1>Заявки на смены</h1>
+<h2>Заявки на смены</h2>
 {% if role == 'SHOP_ADMIN' or role == 'SUPER_ADMIN' %}
 <div class="application">
+    {% if shift_req %}
     {% for s in shift_req %}
         <div class="application-item">
             <h3>Имя: {{ s.worker.name }}</h3>
@@ -25,6 +26,9 @@
             <hr>
         </div>
     {% endfor %}
+    {% else %}
+        <p>Заявок нет</p>
+    {% endif %}
 </div>
 {% else %}
 <div class="application">

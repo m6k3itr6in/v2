@@ -14,7 +14,18 @@
                 </div>
             {% endfor %}
         {% else %}
-            <p>Пусто</p>
+            <div class="alert alert-info mt-4 text-center py-5">
+                <h4 class="mb-3">Добро пожаловать, {{ user.username }}!</h4>
+                <p class="lead">Ваша учетная запись ожидает одобрения администратором.</p>
+                <div id="index-push-section">
+                    <hr class="my-4">
+                    <p>Чтобы сразу узнать, когда вас одобрят, пожалуйста, включите уведомления:</p>
+                    <button id="index-push-btn" class="btn btn-lg btn-primary mt-2 shadow-sm" onclick="subscribeUser()">
+                        🔔 Включить уведомления
+                    </button>
+                    <p class="text-muted mt-3 small">Это позволит нам прислать вам сообщение с названием вашей точки сразу после активации профиля.</p>
+                </div>
+            </div>
         {% endif %}
     </div>
 {% endblock content %}

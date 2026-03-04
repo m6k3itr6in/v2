@@ -526,6 +526,15 @@ def approve_worker(request, worker_id):
         worker.coffee_shop_id = shop_id
         worker.start_date_experience_years = timezone.now().date()
         worker.save()
+
+        from .utils import send_push_notification
+        if worker.user:
+            send_push_notification(
+                user=worker.user,
+                title="Регистрация одобрена",
+                body=f"Заявка на регистрацию одобрена. Ваша точка: {worker.coffee_shop.name}",
+                url=f"{settings.SITE_URL}/"
+            )
     
     return redirect('main:pending_registrations')
 

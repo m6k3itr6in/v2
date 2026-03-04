@@ -7,6 +7,7 @@ phone_validator = RegexValidator(
     regex=r'^(\+7|7|8)[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
     message="Введите корректный номер телефона."
 )
+from django.conf import settings
 from .utils import send_push_to_admin
 
 class WorkerSelfRegistrationForm(forms.Form):
@@ -80,7 +81,7 @@ class WorkerSelfRegistrationForm(forms.Form):
         send_push_to_admin(
             title="Новая регистрация!",
             body=f"Зарегестрировался {worker.name}. Требуется подтверждение.",
-            url="http://localhost:8000/managment/pending/"
+            url=f"{settings.SITE_URL}/managment/pending/"
         )
 
         if commit:

@@ -10,4 +10,3 @@ def user_role_processor(request):
     
     context['vapid_public_key'] = getattr(settings, 'WEBPUSH_VAPID_PUBLIC_KEY', None)
     return context
-

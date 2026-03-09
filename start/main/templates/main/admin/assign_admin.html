@@ -1,21 +1,32 @@
 {% extends 'main/base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="container">
-    <h2>Назначить админа кофейни</h2>
+<div class="register-wrapper">
+    <div class="register-card" style="max-width: 500px;">
+        <h2>Назначить админа кофейни</h2>
 
-    <form method="post">
-        {% csrf_token %}
+        <form method="post">
+            {% csrf_token %}
 
-        {% for field in form %}
-        <div class="form-group">
-            {{ field.label_tag }}
-            {{ field }}
-            <div class="error">{{ field.errors }}</div>
-        </div>
-        {% endfor %}
+            {% for field in form %}
+            <div class="form-group-custom">
+                <label>{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <div class="text-danger Small mt-1">{{ field.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
 
-        <button type="submit" style="margin-top: 10px;">Назначить</button>
-    </form>
+            <button type="submit" class="btn-register">Назначить</button>
+            
+            <div class="mt-4 text-center">
+                <a href="{% url 'main:index' %}" class="text-secondary text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> На главную
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

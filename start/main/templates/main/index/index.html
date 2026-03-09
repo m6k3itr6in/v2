@@ -6,13 +6,15 @@
 {% block content %}
     <div class="home">
         {% if show_cafes %}
-            {% for cafe in cafes %}
-                <div class="cafes-in">
-                    <div class="cafe-name">
-                        <a href="{% url 'main:workers' cafe.slug %}" class="cafe-name-a">{{ cafe.name }}</a>
-                    </div>
-                </div>
-            {% endfor %}
+            <h2 class="section-title text-center mb-5">Наши Кофейни</h2>
+            <div class="cafes-grid">
+                {% for cafe in cafes %}
+                    <a href="{% url 'main:workers' cafe.slug %}" class="cafe-card">
+                        <h3 class="cafe-name-a">{{ cafe.name }}</h3>
+                        <div class="btn-enter">Войти <i class="bi bi-arrow-right"></i></div>
+                    </a>
+                {% endfor %}
+            </div>
         {% else %}
             <div class="alert alert-info mt-4 text-center py-5">
                 <h4 class="mb-3">Добро пожаловать, {{ user.username }}!</h4>

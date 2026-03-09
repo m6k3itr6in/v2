@@ -9,9 +9,9 @@
     {% for s in shift_req %}
         <div class="application-item">
             <h3>Имя: {{ s.worker.name }}</h3>
-            <h5>Создана: {{ s.requested_at }}</h5>
-            <h5>На смену: {{ s.shift.date }}</h5>
-            <h5>Предложена: {% if s.taken_by == None%}Никому{% else %}{{ s.taken_by }}{% endif %}</h5>
+            <h5>Создана: {{ s.requested_at|date:"d.m H:i" }}</h5>
+            <h5>На смену: {{ s.shift.date|date:"d.m" }} на {{ s.shift.coffee_shop.name }} {% if s.shift.start_time %}в {{ s.shift.start_time|time:"H:i" }}{% endif %}</h5>
+            <h5>Предложена: {% if s.taken_by == None%}Никому{% else %}{{ s.taken_by.name }}{% endif %}</h5>
             <h5>Причина: {{ s.reason }}</h5>
             <form action="{% url 'main:accept_application' %}" method="POST">
                 {% csrf_token %}
@@ -34,7 +34,7 @@
 <div class="application">
     {% for app in my_incoming %}
         <div class="application-item">
-            <h3>{{ app.worker.name }} хочет отдать вам смену {{ app.shift.date }}</h3>
+            <h3>{{ app.worker.name }} хочет отдать вам смену {{ app.shift.date|date:"d.m" }} на {{ app.shift.coffee_shop.name }} {% if app.shift.start_time %}в {{ app.shift.start_time|time:"H:i" }}{% endif %}</h3>
             <form action="{% url 'main:confirm_take_shift'%}" method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="application_id" value="{{ app.id }}">

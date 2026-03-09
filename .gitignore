@@ -11,4 +11,4 @@ db.sqlite3
 media/
 settings.ini
 
-C:\Users\dimas\venv_v2
+start/main/tests_notifications.py

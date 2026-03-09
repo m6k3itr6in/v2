@@ -1,20 +1,21 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest, PushSubscriptions
+from django.http import FileResponse, HttpResponseBadRequest, JsonResponse, HttpResponseForbidden
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest, PushSubscriptions, HelpItem
+from .utils import send_push_notification, send_push_to_admin
 from django.urls import reverse
 from django.utils import timezone
+import json
 from django.db.models import Q
 import calendar
 from datetime import date, timedelta, datetime
-import json
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.http import require_POST, require_http_methods
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from functools import wraps
 from .forms import WorkerCreationForm, AssignmentForm, WorkerSelfRegistrationForm
-from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
 def get_user_profile(user):
@@ -160,17 +161,30 @@ def schedule_view(request, slug, year=None, month=None):
     requests_map = {(r.shift.worker_id, r.shift.date) for r in active_requests}
 
     my_future_shifts = []
+    available_workers_by_shift_json = "{}"
     if role == 'WORKER':
         worker = getattr(request.user, 'worker_profile', None)
         if worker:
-            my_future_shifts = Shift.objects.filter(
+            my_future_shifts = list(Shift.objects.filter(
                 worker=worker,
                 date__gte=timezone.now().date(),
                 coffee_shop=shop
-            ).order_by('date')
-
-    if role == 'WORKER':
-        colleagues = Worker.objects.filter(coffee_shop=shop).exclude(id=worker.id)
+            ).order_by('date'))
+            
+            available_workers_dict = {}
+            for s in my_future_shifts:
+                working_ids = Shift.objects.filter(date=s.date).values_list('worker_id', flat=True)
+                available = Worker.objects.exclude(id=worker.id).exclude(id__in=working_ids).select_related('coffee_shop')
+                available_workers_dict[s.id] = [
+                    {
+                        'id': w.id,
+                        'name': w.name,
+                        'shop': w.coffee_shop.name if w.coffee_shop else 'Без точки'
+                    } for w in available
+                ]
+            available_workers_by_shift_json = json.dumps(available_workers_dict)
+            
+            colleagues = Worker.objects.filter(coffee_shop=shop).exclude(id=worker.id)
     else:
         colleagues = []
 
@@ -192,6 +206,7 @@ def schedule_view(request, slug, year=None, month=None):
         'requests_map':requests_map,
         'my_future_shifts':my_future_shifts,
         'colleagues':colleagues,
+        'available_workers_by_shift_json': available_workers_by_shift_json,
     })
 
 @login_required
@@ -212,7 +227,26 @@ def offer_shift_exchange(request):
     if ShiftRequest.objects.filter(shift=shift, status='PENDING').exists():
         pass
     else:
-        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status='AWAITING_TAKER', taken_by=receiver)
+        req_status = 'AWAITING_TAKER' if receiver else 'PENDING'
+        ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status=req_status, taken_by=receiver)
+        
+        url = reverse('main:shift_applications')
+        
+        if receiver:
+            if receiver.user:
+                send_push_notification(
+                    user=receiver.user,
+                    title="Предложение смены",
+                    body=f"Работник {worker.name} предлагает вам свою смену {shift.date.strftime('%d.%m')}",
+                    url=url
+                )
+        else:
+            send_push_to_admin(
+                title="Отказ от смены",
+                body=f"Работник {worker.name} хочет отказаться от смены {shift.date.strftime('%d.%m')} ({shift.coffee_shop.name})",
+                url=url,
+                coffee_shop=shift.coffee_shop
+            )
     
     return redirect('main:schedule', slug=shift.coffee_shop.slug, year=shift.date.year, month=shift.date.month)
 
@@ -371,12 +405,38 @@ def accept_application(request):
             shift.worker = app.taken_by
             shift.save()
         app.save()
+        
+        url = reverse('main:shift_applications')
+        if app.worker.user:
+            send_push_notification(
+                app.worker.user,
+                "Замена подтверждена",
+                f"Администратор подтвердил вашу замену с {app.taken_by.name} на {app.shift.date.strftime('%d.%m') if app.shift else ''}",
+                url
+            )
+        if app.taken_by.user:
+            send_push_notification(
+                app.taken_by.user,
+                "Замена подтверждена",
+                f"Администратор подтвердил вашу замену с {app.worker.name} на {app.shift.date.strftime('%d.%m') if app.shift else ''}",
+                url
+            )
     else:
         app.status = 'APPROVED'
+        date_str = app.shift.date.strftime('%d.%m') if app.shift else ''
         app.shift = None
         app.save()
         if shift:
             shift.delete()
+            
+        url = reverse('main:shift_applications')
+        if app.worker.user:
+            send_push_notification(
+                app.worker.user,
+                "Отказ от смены подтвержден",
+                f"Администратор подтвердил ваш отказ от смены на {date_str}",
+                url
+            )
     
     return redirect('main:shift_applications')
 
@@ -387,12 +447,27 @@ def confirm_take_shift(request):
     role = get_user_role(request.user)
     app = get_object_or_404(ShiftRequest, id=id)
     action = request.POST.get('action')
+    url = reverse('main:shift_applications')
+    
     if action == 'accept':
         app.status = 'PENDING'
         app.save()
+        send_push_to_admin(
+            title="Запрос на замену",
+            body=f"Работник {app.taken_by.name} согласился взять смену вместо {app.worker.name} на {app.shift.date.strftime('%d.%m') if app.shift else ''}. Ожидает вашего подтверждения.",
+            url=url,
+            coffee_shop=app.shift.coffee_shop if app.shift else None
+        )
     else:
         app.status = 'REJECTED'
         app.save()
+        if app.worker.user:
+            send_push_notification(
+                app.worker.user,
+                "Отказ в замене",
+                f"Работник {app.taken_by.name} отказался взять вашу смену на {app.shift.date.strftime('%d.%m') if app.shift else ''}",
+                url
+            )
 
     return redirect('main:shift_applications')
 
@@ -406,6 +481,16 @@ def reject_application(request):
     app.approved_by = request.user
     app.approved_at = timezone.now()
     app.save()
+    
+    url = reverse('main:shift_applications')
+    if app.taken_by:
+        if app.worker.user:
+            send_push_notification(app.worker.user, "Замена отклонена", f"Администратор отклонил вашу замену с {app.taken_by.name}", url)
+        if app.taken_by.user:
+            send_push_notification(app.taken_by.user, "Замена отклонена", f"Администратор отклонил замену {app.worker.name} на вас", url)
+    else:
+        if app.worker.user:
+            send_push_notification(app.worker.user, "Отказ от смены отклонен", "Администратор отклонил ваш запрос на отказ от смены", url)
 
     return redirect('main:shift_applications')
 
@@ -565,3 +650,115 @@ def save_push_subscription(request):
             'p256dh': data['keys']['p256dh'],
         })
     return JsonResponse({'ok': True})
+
+@login_required
+def help_view(request):
+    role = get_user_role(request.user)
+    items = HelpItem.objects.all()
+    
+    categories = {
+        'TECH_CHART': {'name': 'Техкарты', 'items': []},
+        'PRICE_LIST': {'name': 'Прайс-листы', 'items': []},
+        'OTHER': {'name': 'Прочее', 'items': []}
+    }
+    
+    for item in items:
+        if item.category in categories:
+            categories[item.category]['items'].append(item)
+            
+    return render(request, 'main/help/help.html', {
+        'categories': categories,
+        'role': role
+    })
+
+@login_required
+def manage_help_item(request, pk=None):
+    if get_user_role(request.user) not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        return HttpResponseForbidden("Доступ запрещен")
+        
+    item = get_object_or_404(HelpItem, pk=pk) if pk else None
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        category = request.POST.get('category')
+        item_type = request.POST.get('item_type', 'FILE')
+        content = request.POST.get('content')
+        file = request.FILES.get('file')
+        
+        if pk:
+            item.title = title
+            item.category = category
+            item.item_type = item_type
+            item.content = content
+            if file:
+                item.file = file
+            item.save()
+        else:
+            HelpItem.objects.create(
+                title=title,
+                category=category,
+                item_type=item_type,
+                content=content,
+                file=file,
+                uploaded_by=request.user
+            )
+        return redirect('main:help_list')
+
+    return render(request, 'main/help/manage_item.html', {'item': item})
+
+@login_required
+@require_POST
+def update_worker_photo(request):
+    worker_id = request.POST.get('worker_id')
+    photo = request.FILES.get('photo')
+    
+    if not worker_id or not photo:
+        return JsonResponse({'ok': False, 'error': 'Missing data'}, status=400)
+    
+    worker = get_object_or_404(Worker, id=worker_id)
+    user_role = get_user_role(request.user)
+    
+    is_admin = user_role in ('SUPER_ADMIN', 'SHOP_ADMIN')
+    is_owner = worker.user == request.user
+    
+    if not (is_admin or is_owner):
+        return JsonResponse({'ok': False, 'error': 'Permission denied'}, status=403)
+    
+    worker.photo = photo
+    worker.save()
+    
+    return JsonResponse({
+        'ok': True, 
+        'photo_url': worker.photo.url
+    })
+
+@login_required
+@require_POST
+def delete_worker_photo(request):
+    worker_id = request.POST.get('worker_id')
+    if not worker_id:
+        return JsonResponse({'ok': False, 'error': 'Missing worker_id'}, status=400)
+    
+    worker = get_object_or_404(Worker, id=worker_id)
+    user_role = get_user_role(request.user)
+    
+    is_admin = user_role in ('SUPER_ADMIN', 'SHOP_ADMIN')
+    is_owner = worker.user == request.user
+    
+    if not (is_admin or is_owner):
+        return JsonResponse({'ok': False, 'error': 'Permission denied'}, status=403)
+    
+    if worker.photo:
+        worker.photo.delete(save=True)
+        
+    return JsonResponse({'ok': True})
+
+@login_required
+@require_POST
+def delete_help_item(request, pk):
+    if get_user_role(request.user) not in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        return HttpResponseForbidden("Доступ запрещен")
+        
+    item = get_object_or_404(HelpItem, pk=pk)
+    item.delete()
+    return redirect('main:help_list')

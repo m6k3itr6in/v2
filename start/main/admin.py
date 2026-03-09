@@ -1,13 +1,19 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group, User
 from django.contrib.admin.sites import NotRegistered
-from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest
+from .models import CoffeeShop, Worker, Shift, UserProfile, ShopAdmin, ShiftRequest, HelpItem
 
 # Register your models here.
 try:
     admin.site.unregister(Group)
 except NotRegistered:
     pass
+
+@admin.register(HelpItem)
+class HelpItemAdmin(admin.ModelAdmin):
+    list_display = ['title', 'category', 'item_type', 'uploaded_at', 'uploaded_by']
+    list_filter = ['category', 'item_type']
+    search_fields = ['title', 'content']
 
 @admin.register(CoffeeShop)
 class CoffeeShopAdmin(admin.ModelAdmin):

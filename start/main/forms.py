@@ -132,11 +132,21 @@ class WorkerCreationForm(forms.ModelForm):
         return worker
 
 class AssignmentForm(forms.ModelForm):
-    user = forms.ModelChoiceField(queryset=User.objects.all(), label='User')
+    user = forms.ModelChoiceField(
+        queryset=User.objects.all(), 
+        label='Пользователь',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
 
     class Meta:
         model = ShopAdmin
         fields = ['user', 'coffee_shop']
+        labels = {
+            'coffee_shop': 'Кофейня',
+        }
+        widgets = {
+            'coffee_shop': forms.Select(attrs={'class': 'form-select'}),
+        }
 
     def save(self, commit=True):
         shop_admin = super().save(commit=False)

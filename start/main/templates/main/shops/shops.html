@@ -6,19 +6,40 @@
 {% block content %}
     {% now "Y" as now_year %}
     {% now "m" as now_month %}
-    <div class="home">
-        {% for worker in workers %}
-            <div class="workers-in">
-                <div class="worker-name">
-                    <a href="{% url 'main:worker_detail' worker.id %}">{{ worker.name }}</a>
-                </div>
-            </div>
-        {% endfor %}
-        <div class="shift-shop">
-            <a href="{% url 'main:schedule' shop.slug now_year now_month %}">Расписание этой точки</a>
-        </div>
-        <div class="applications">
-            <a href="{% url 'main:shift_applications' %}">Заявки</a>
+<div class="shop-container">
+    <div class="shop-header">
+        <h2 class="shop-title">{{ shop.name }}</h2>
+        <div class="shop-actions">
+            <a href="{% url 'main:schedule' shop.slug now_year now_month %}" class="btn-action">
+                <i class="bi bi-calendar3"></i> Расписание
+            </a>
+            <a href="{% url 'main:shift_applications' %}" class="btn-action outline">
+                <i class="bi bi-file-earmark-text"></i> Заявки
+            </a>
         </div>
     </div>
+
+    <div class="workers-section">
+        <div class="section-title">Сотрудники</div>
+        <div class="workers-grid">
+            {% for worker in workers %}
+            <a href="{% url 'main:worker_detail' worker.id %}" class="worker-card">
+                <div class="worker-avatar">
+                    {% if worker.photo %}
+                        <img src="{{ worker.photo.url }}" alt="{{ worker.name }}">
+                    {% else %}
+                        <div class="avatar-placeholder">{{ worker.name|slice:":1" }}</div>
+                    {% endif %}
+                </div>
+                <div class="worker-info">
+                    <span class="worker-name">{{ worker.name }}</span>
+                </div>
+                <i class="bi bi-chevron-right ms-auto"></i>
+            </a>
+            {% empty %}
+            <p class="text-muted text-center py-4">На этой точке пока нет работников.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock content %}

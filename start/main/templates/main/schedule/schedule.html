@@ -32,13 +32,10 @@
 <table class="table table-bordered" id="scheduleTable" data-shop-id="{{ shop.id }}" data-min-workers="{{ min_workers }}" data-shop-code="{{ shop.short_code }}">
     <thead>
         <tr>
-            <th>Работник</th>
+            <th class="day-header">Работник</th>
             {% for day_info in days_info %}
-                {% if day_info.workers_count < min_workers %}
-                    <th class="day-header" data-date="{{ day_info.date|date:'Y-m-d' }}" style="background-color: #F08080;">{{ day_info.date.day }}</th>
-                {% else %}
-                    <th class="day-header" data-date="{{ day_info.date|date:'Y-m-d' }}">{{ day_info.date.day }}</th>
-                {% endif %}
+                <th class="day-header {% if day_info.workers_count < min_workers %}warning{% endif %}" 
+                    data-date="{{ day_info.date|date:'Y-m-d' }}">{{ day_info.date.day }}</th>
             {% endfor %}
         </tr>
     </thead>
@@ -103,12 +100,8 @@
                 <textarea name="reason" class="form-control mb-3" placeholder="Причина (необязательно)"></textarea>
                 <div class="mb-3">
                     <label class="form-label">Кому предложить смену?</label>
-                    <select name="taken_by_id" class="form-select" required>
-                        <option value="" disabled selected>Выберите коллегу</option>
-                        {% for colleague in colleagues %}
-                            <option value="{{ colleague.id }}">{{ colleague.name }}</option>
-                        {% endfor %}
-                        <option value="none">Никому</option>
+                    <select name="taken_by_id" id="taken_by_id" class="form-select" required>
+                        <option value="" disabled selected>Сначала выберите смену</option>
                     </select>
                 </div>
                 <div class="d-flex gap-2">
@@ -154,6 +147,33 @@
             const url = tpl.replace('/9999/99/', `/${y}/${m}/`);
             window.location.href = url;
         });
+        
+        const availableWorkers = JSON.parse('{{ available_workers_by_shift_json|safe }}');
+        const shiftRadios = document.querySelectorAll('input[name="shift_id"]');
+        const workerSelect = document.getElementById('taken_by_id');
+        
+        if (shiftRadios.length > 0 && workerSelect) {
+            shiftRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const shiftId = this.value;
+                    const workers = availableWorkers[shiftId] || [];
+                    
+                    workerSelect.innerHTML = '<option value="" disabled selected>Выберите коллегу</option>';
+                    
+                    workers.forEach(w => {
+                        const opt = document.createElement('option');
+                        opt.value = w.id;
+                        opt.textContent = `${w.name} (${w.shop})`;
+                        workerSelect.appendChild(opt);
+                    });
+                    
+                    const noOneOpt = document.createElement('option');
+                    noOneOpt.value = 'none';
+                    noOneOpt.textContent = 'Никому (Сбросить смену)';
+                    workerSelect.appendChild(noOneOpt);
+                });
+            });
+        }
     });
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -196,9 +216,9 @@
                 });
                 
                 if (count < minWorkers) {
-                    header.style.backgroundColor = '#F08080';
+                    header.classList.add('warning');
                 } else {
-                    header.style.backgroundColor = '';
+                    header.classList.remove('warning');
                 }
             });
         }
@@ -330,31 +350,5 @@
         });
     });
 
-    function updateDayHeaders() {
-        const minWorkers = parseInt(tableEl.dataset.minWorkers);
-        const shopId = tableEl.dataset.shopId;
-    
-        const dayHeaders = document.querySelectorAll('.day-header');
-        dayHeaders.forEach(header => {
-            const date = header.dataset.date;
-            const cells = document.querySelectorAll(`.schedule-cell[data-date="${date}"]`);
-            let count = 0;
-    
-            cells.forEach(cell => {
-                const hasShift = cell.dataset.hasShift === '1';
-                if (!hasShift) return;
-                const anotherShopId = cell.dataset.anotherShopId || '';
-                if (!anotherShopId || anotherShopId === shopId) {
-                    count++;
-                }
-            });
-    
-            if (count < minWorkers) {
-                header.style.backgroundColor = '#F08080';
-            } else {
-                header.style.backgroundColor = '';
-            }
-        });
-    }
 </script>
 {% endblock content %}

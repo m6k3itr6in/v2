@@ -196,3 +196,33 @@ class PushSubscriptions(models.Model):
     auth = models.CharField(max_length=100)
     p256dh = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class HelpItem(models.Model):
+    CATEGORY_CHOICES = [
+        ('TECH_CHART', 'Техкарта'),
+        ('PRICE_LIST', 'Прайс-лист'),
+        ('OTHER', 'Прочее'),
+    ]
+    ITEM_TYPE_CHOICES = [
+        ('FILE', 'Файл (PDF/Изображение)'),
+        ('TEXT', 'Текст/Таблица'),
+    ]
+
+    title = models.CharField(max_length=100, verbose_name="Заголовок")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER', verbose_name="Категория")
+    item_type = models.CharField(max_length=10, choices=ITEM_TYPE_CHOICES, default='FILE', verbose_name="Тип контента")
+    
+    file = models.FileField(upload_to='help/', null=True, blank=True, verbose_name="Файл")
+    content = models.TextField(null=True, blank=True, verbose_name="Текст/Контент")
+    
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = 'help_items'
+        verbose_name = "Справочный материал"
+        verbose_name_plural = "Справочные материалы"
+        ordering = ['category', '-uploaded_at']
+
+    def __str__(self):
+        return f"{self.get_category_display()}: {self.title}"

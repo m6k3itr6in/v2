@@ -24,4 +24,10 @@ urlpatterns = [
     path('managment/pending/', views.pending_registrations, name='pending_registrations'),
     path('managment/approve/<int:worker_id>/', views.approve_worker, name='approve_worker'),
     path('managment/reject/<int:worker_id>/', views.reject_worker, name='reject_worker'),
+    path('help/', views.help_view, name='help_list'),
+    path('help/manage/', views.manage_help_item, name='manage_help_item'),
+    path('help/manage/<int:pk>/', views.manage_help_item, name='edit_help_item'),
+    path('help/delete/<int:pk>/', views.delete_help_item, name='delete_help_item'),
+    path('worker/update-photo/', views.update_worker_photo, name='update_worker_photo'),
+    path('worker/delete-photo/', views.delete_worker_photo, name='delete_worker_photo'),
 ]

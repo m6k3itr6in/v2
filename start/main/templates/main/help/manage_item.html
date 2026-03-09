@@ -1,0 +1,81 @@
+{% extends 'main/base.html' %}
+
+{% block title %}{% if item %}Изменить{% else %}Добавить{% endif %} материал{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{% if item %}Изменить материал{% else %}Новый материал{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Заголовок</label>
+                        <input type="text" name="title" class="form-control" required value="{{ item.title|default:'' }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Категория</label>
+                        <select name="category" class="form-select">
+                            <option value="TECH_CHART" {% if item.category == 'TECH_CHART' %}selected{% endif %}>Техкарта</option>
+                            <option value="PRICE_LIST" {% if item.category == 'PRICE_LIST' %}selected{% endif %}>Прайс-лист</option>
+                            <option value="OTHER" {% if item.category == 'OTHER' or not item %}selected{% endif %}>Прочее</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Тип контента</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="item_type" id="typeFile" value="FILE" {% if item.item_type != 'TEXT' %}checked{% endif %}>
+                                <label class="form-check-label" for="typeFile">Файл (PDF/Картинка)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="item_type" id="typeText" value="TEXT" {% if item.item_type == 'TEXT' %}checked{% endif %}>
+                                <label class="form-check-label" for="typeText">Текст/Список</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="fileSection" class="mb-3 {% if item.item_type == 'TEXT' %}d-none{% endif %}">
+                        <label class="form-label">Файл</label>
+                        <input type="file" name="file" class="form-control">
+                        {% if item.file %}
+                        <small class="text-muted">Текущий: {{ item.file.name }}</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="textSection" class="mb-3 {% if item.item_type != 'TEXT' %}d-none{% endif %}">
+                        <label class="form-label">Содержимое (текст/таблица)</label>
+                        <textarea name="content" class="form-control" rows="10">{{ item.content|default:'' }}</textarea>
+                        <div class="form-text">Здесь можно написать цены, правила или любую текстовую информацию.</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                        <a href="{% url 'main:help_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('input[name="item_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'FILE') {
+                document.getElementById('fileSection').classList.remove('d-none');
+                document.getElementById('textSection').classList.add('d-none');
+            } else {
+                document.getElementById('fileSection').classList.add('d-none');
+                document.getElementById('textSection').classList.remove('d-none');
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -19,6 +19,6 @@ def start():
     
     try:
         scheduler.start()
-        print("--- Scheduler started successfully (Daily check at 10:00) ---")
+        logger.info("--- Scheduler started successfully (Daily check at 10:00) ---")
     except Exception as e:
-        print(f"--- Error starting scheduler: {e} ---")
+        logger.error(f"--- Error starting scheduler: {e} ---")

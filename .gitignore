@@ -11,5 +11,6 @@ db.sqlite3
 media/
 settings.ini
 start/django_error.log
+.env
 
 start/main/tests_notifications.py

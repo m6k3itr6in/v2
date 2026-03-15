@@ -23,11 +23,10 @@
                 <input type="hidden" name="application_id" value="{{ s.id }}">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Отклонить</button>
             </form>
-            <hr>
         </div>
     {% endfor %}
     {% else %}
-        <p>Заявок нет</p>
+        <p class="text-muted text-center py-4">Заявок нет</p>
     {% endif %}
 </div>
 {% else %}
@@ -41,7 +40,6 @@
                 <button type="submit" name="action" value="accept" class="btn btn-sm btn-outline-secondary">Подтвердить</button>
                 <button type="submit" name="action" value="reject" class="btn btn-sm btn-outline-secondary">Отказать</button>
             </form>
-            <hr>
         </div>
     {% endfor %}
 </div>

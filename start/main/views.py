@@ -49,12 +49,16 @@ def index(request):
     role = get_user_role(request.user)
 
     if role == 'SUPER_ADMIN':
-        cafes = CoffeeShop.objects.all()
+        cafes = list(CoffeeShop.objects.all())
+        for c in cafes:
+            c.pending_applications_count = ShiftRequest.objects.filter(shift__coffee_shop=c, status='PENDING').count()
         return render(request, 'main/index/super_admin_index.html', {'cafes': cafes})
     
     if role == 'SHOP_ADMIN':
         admin_shops = ShopAdmin.objects.filter(user=request.user).values_list('coffee_shop_id', flat=True)
-        cafes = CoffeeShop.objects.filter(id__in=admin_shops)
+        cafes = list(CoffeeShop.objects.filter(id__in=admin_shops))
+        for c in cafes:
+            c.pending_applications_count = ShiftRequest.objects.filter(shift__coffee_shop=c, status='PENDING').count()
         return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': True})
 
     if not request.user.is_authenticated:
@@ -62,8 +66,12 @@ def index(request):
         return render(request, 'main/index/index.html', {'cafes': cafes, 'show_cafes': False})
 
     worker = Worker.objects.filter(user=request.user).first()
-    cafes = CoffeeShop.objects.all()
     show_cafes = (worker is not None and worker.coffee_shop_id is not None)
+    
+    cafes = list(CoffeeShop.objects.all())
+    if show_cafes:
+        for c in cafes:
+            c.pending_applications_count = ShiftRequest.objects.filter(taken_by=worker, status='AWAITING_TAKER', shift__coffee_shop=c).count()
     
     return render(request, 'main/index/index.html', {
         'cafes': cafes if show_cafes else [],
@@ -74,7 +82,23 @@ def get_workers(request, slug):
     shop = get_object_or_404(CoffeeShop, slug=slug)
     workers = list(Worker.objects.filter(coffee_shop=shop))
     sync_workers_experience_years(workers)
-    return render(request, 'main/shops/shops.html', {'workers':workers, 'shop':shop})
+    
+    role = get_user_role(request.user)
+    pending_applications_count = 0
+    if role in ('SHOP_ADMIN', 'SUPER_ADMIN'):
+        pending_applications_count = ShiftRequest.objects.filter(shift__coffee_shop=shop, status='PENDING').count()
+    else:
+        taker = getattr(request.user, 'worker_profile', None)
+        if taker:
+            pending_applications_count = ShiftRequest.objects.filter(taken_by=taker, status='AWAITING_TAKER', shift__coffee_shop=shop).count()
+            
+    return render(request, 'main/shops/shops.html', {
+        'workers': workers, 
+        'shop': shop, 
+        'pending_applications_count': pending_applications_count,
+        'role': role,
+        'current_worker': taker if role == 'WORKER' else None
+    })
 
 def worker_detail(request, worker_id):
     worker = get_object_or_404(Worker, id=worker_id)
@@ -230,7 +254,8 @@ def offer_shift_exchange(request):
         req_status = 'AWAITING_TAKER' if receiver else 'PENDING'
         ShiftRequest.objects.create(shift=shift, worker=worker, reason=request.POST.get('reason', ''), status=req_status, taken_by=receiver)
         
-        url = reverse('main:shift_applications')
+        shop_slug = shift.coffee_shop.slug if shift else None
+        url = reverse('main:shift_applications', args=[shop_slug]) if shop_slug else reverse('main:index')
         
         if receiver:
             if receiver.user:
@@ -379,15 +404,19 @@ def register_vacation(request, worker_id):
     
     return redirect('main:worker_detail', worker.id)
 
-def shift_applications(request):
+def shift_applications(request, slug):
+    shop = get_object_or_404(CoffeeShop, slug=slug)
     role = get_user_role(request.user)
     if role in ('SHOP_ADMIN', 'SUPER_ADMIN'):
-        shift_req = ShiftRequest.objects.filter(status='PENDING').select_related('worker', 'shift', 'taken_by')
-        context = {'role':role, 'shift_req':shift_req}
+        shift_req = ShiftRequest.objects.filter(shift__coffee_shop=shop, status='PENDING').select_related('worker', 'shift', 'taken_by')
+        context = {'role': role, 'shift_req': shift_req, 'shop': shop}
     else:
         taker = getattr(request.user, 'worker_profile', None)
-        my_incoming = ShiftRequest.objects.filter(taken_by=taker, status='AWAITING_TAKER').select_related('shift', 'worker')
-        context = {'role':role, 'my_incoming':my_incoming}
+        if taker and taker.coffee_shop == shop:
+            my_incoming = ShiftRequest.objects.filter(shift__coffee_shop=shop, taken_by=taker, status='AWAITING_TAKER').select_related('shift', 'worker')
+        else:
+            my_incoming = ShiftRequest.objects.none()
+        context = {'role': role, 'my_incoming': my_incoming, 'shop': shop}
 
     return render(request, 'main/applications/shift_applications.html', context)
 
@@ -397,6 +426,9 @@ def accept_application(request):
     id = request.POST.get('application_id')
     app = get_object_or_404(ShiftRequest, id=id)
     shift = app.shift
+    
+    shop_slug = shift.coffee_shop.slug if shift else None
+    
     app.approved_by = request.user
     app.approved_at = timezone.now()
     if app.taken_by:
@@ -406,7 +438,7 @@ def accept_application(request):
             shift.save()
         app.save()
         
-        url = reverse('main:shift_applications')
+        url = reverse('main:shift_applications', args=[shop_slug]) if shop_slug else reverse('main:index')
         if app.worker.user:
             send_push_notification(
                 app.worker.user,
@@ -429,7 +461,7 @@ def accept_application(request):
         if shift:
             shift.delete()
             
-        url = reverse('main:shift_applications')
+        url = reverse('main:shift_applications', args=[shop_slug]) if shop_slug else reverse('main:index')
         if app.worker.user:
             send_push_notification(
                 app.worker.user,
@@ -438,7 +470,9 @@ def accept_application(request):
                 url
             )
     
-    return redirect('main:shift_applications')
+    if shop_slug:
+        return redirect('main:shift_applications', slug=shop_slug)
+    return redirect('main:index')
 
 @login_required
 @require_POST
@@ -447,7 +481,9 @@ def confirm_take_shift(request):
     role = get_user_role(request.user)
     app = get_object_or_404(ShiftRequest, id=id)
     action = request.POST.get('action')
-    url = reverse('main:shift_applications')
+    
+    shop_slug = app.shift.coffee_shop.slug if app.shift else None
+    url = reverse('main:shift_applications', args=[shop_slug]) if shop_slug else reverse('main:index')
     
     if action == 'accept':
         app.status = 'PENDING'
@@ -469,7 +505,9 @@ def confirm_take_shift(request):
                 url
             )
 
-    return redirect('main:shift_applications')
+    if shop_slug:
+        return redirect('main:shift_applications', slug=shop_slug)
+    return redirect('main:index')
 
 
 @login_required
@@ -482,7 +520,9 @@ def reject_application(request):
     app.approved_at = timezone.now()
     app.save()
     
-    url = reverse('main:shift_applications')
+    shop_slug = app.shift.coffee_shop.slug if app.shift else None
+    url = reverse('main:shift_applications', args=[shop_slug]) if shop_slug else reverse('main:index')
+    
     if app.taken_by:
         if app.worker.user:
             send_push_notification(app.worker.user, "Замена отклонена", f"Администратор отклонил вашу замену с {app.taken_by.name}", url)
@@ -492,7 +532,9 @@ def reject_application(request):
         if app.worker.user:
             send_push_notification(app.worker.user, "Отказ от смены отклонен", "Администратор отклонил ваш запрос на отказ от смены", url)
 
-    return redirect('main:shift_applications')
+    if shop_slug:
+        return redirect('main:shift_applications', slug=shop_slug)
+    return redirect('main:index')
 
 @login_required
 def statistics(request):
@@ -762,3 +804,18 @@ def delete_help_item(request, pk):
     item = get_object_or_404(HelpItem, pk=pk)
     item.delete()
     return redirect('main:help_list')
+
+@login_required
+@require_POST
+def add_shop(request):
+    role = get_user_role(request.user)
+    if role != 'SUPER_ADMIN':
+        return HttpResponseForbidden("Только супер-админ может добавлять кофейни")
+        
+    name = request.POST.get('name')
+    short_name = request.POST.get('short_name')
+    rate = request.POST.get('rate')
+    min_workers = request.POST.get('min_workers')
+    if name:
+        CoffeeShop.objects.create(name=name, short_code=short_name, hourly_rate=rate, minimum_workers=min_workers)
+    return redirect('main:index')

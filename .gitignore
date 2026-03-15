@@ -10,5 +10,6 @@ __pycache__/
 db.sqlite3
 media/
 settings.ini
+start/django_error.log
 
 start/main/tests_notifications.py

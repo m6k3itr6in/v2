@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='coffeeshop',
             name='slug',
-            field=models.SlugField(blank=True, null=True, max_length=50),
+            field=models.SlugField(blank=True, null=True, max_length=50, db_index=False),
         ),
         migrations.RunPython(populate_slugs, migrations.RunPython.noop),
         migrations.AlterField(

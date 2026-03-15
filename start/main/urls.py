@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/schedule/update/', views.update_shift, name='update_shift'),
     path('shift/offer/', views.offer_shift_exchange, name='offer_shift_exchange'),
     path('applications/confirm/', views.confirm_take_shift, name='confirm_take_shift'),
-    path('applications/', views.shift_applications, name='shift_applications'),
+    path('applications/<slug:slug>/', views.shift_applications, name='shift_applications'),
     path('applications/accept/', views.accept_application, name='accept_application'),
     path('applications/reject/', views.reject_application, name='reject_application'),
     path('workers/register_vacation/<int:worker_id>/', views.register_vacation, name='register_vacation'),
@@ -28,6 +28,7 @@ urlpatterns = [
     path('help/manage/', views.manage_help_item, name='manage_help_item'),
     path('help/manage/<int:pk>/', views.manage_help_item, name='edit_help_item'),
     path('help/delete/<int:pk>/', views.delete_help_item, name='delete_help_item'),
+    path('shop/add/', views.add_shop, name='add_shop'),
     path('worker/update-photo/', views.update_worker_photo, name='update_worker_photo'),
     path('worker/delete-photo/', views.delete_worker_photo, name='delete_worker_photo'),
 ]

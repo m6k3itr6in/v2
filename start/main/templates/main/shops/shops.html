@@ -13,9 +13,16 @@
             <a href="{% url 'main:schedule' shop.slug now_year now_month %}" class="btn-action">
                 <i class="bi bi-calendar3"></i> Расписание
             </a>
-            <a href="{% url 'main:shift_applications' %}" class="btn-action outline">
+            {% if role != 'WORKER' or current_worker and current_worker.coffee_shop == shop %}
+            <a href="{% url 'main:shift_applications' shop.slug %}" class="btn-action position-relative">
                 <i class="bi bi-file-earmark-text"></i> Заявки
+                {% if pending_applications_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                        {{ pending_applications_count }}
+                    </span>
+                {% endif %}
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -24,13 +31,15 @@
         <div class="workers-grid">
             {% for worker in workers %}
             <a href="{% url 'main:worker_detail' worker.id %}" class="worker-card">
-                <div class="worker-avatar">
-                    {% if worker.photo %}
+                {% if worker.photo %}
+                    <div class="worker-avatar">
                         <img src="{{ worker.photo.url }}" alt="{{ worker.name }}">
-                    {% else %}
-                        <div class="avatar-placeholder">{{ worker.name|slice:":1" }}</div>
-                    {% endif %}
-                </div>
+                    </div>
+                {% else %}
+                    <div class="worker-avatar placeholder fw-bold text-secondary">
+                        {{ worker.name|slice:":1" }}
+                    </div>
+                {% endif %}
                 <div class="worker-info">
                     <span class="worker-name">{{ worker.name }}</span>
                 </div>

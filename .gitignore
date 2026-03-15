@@ -12,5 +12,6 @@ media/
 settings.ini
 start/django_error.log
 .env
+git_toke.txt
 
 start/main/tests_notifications.py

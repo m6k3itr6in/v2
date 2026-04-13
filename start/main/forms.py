@@ -157,3 +157,20 @@ class AssignmentForm(forms.ModelForm):
             profile.save()
         
         return shop_admin
+
+
+
+# from django import forms
+# from django.core.validators import RegexValidator
+
+# phone_validator = RegexValidator(
+#     regex=r'^(\+7|7|8)[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$',
+#     message="Неверный формат номера. Используйте стандарт 8XXXXXXXXXX или +7XXXXXXXXXX."
+# )
+
+# class WorkerSelfRegistrationForm(forms.Form):
+#     phone_number = forms.CharField(
+#         label='Телефон', 
+#         validators=[phone_validator],
+#         widget=forms.TextInput(attrs={'class': 'form-control'})
+#     )

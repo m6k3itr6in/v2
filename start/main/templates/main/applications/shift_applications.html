@@ -33,7 +33,7 @@
 <div class="application">
     {% for app in my_incoming %}
         <div class="application-item">
-            <h3>{{ app.worker.name }} хочет отдать вам смену {{ app.shift.date|date:"d.m" }} на {{ app.shift.coffee_shop.name }} {% if app.shift.start_time %}в {{ app.shift.start_time|time:"H:i" }}{% endif %}</h3>
+            <h3>{{ app.worker.name }} хочет отдать вам смену {{ app.shift.date|date:"d.m" }} на точке: {{ app.shift.coffee_shop.name }} {% if app.shift.start_time %}в {{ app.shift.start_time|time:"H:i" }}{% endif %}</h3>
             <form action="{% url 'main:confirm_take_shift'%}" method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="application_id" value="{{ app.id }}">

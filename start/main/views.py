@@ -614,7 +614,8 @@ def statistics(request):
                 'breakdown': breakdown_display,
                 'total_salary': total_salary,
             })
-        stats.append({'shop':shop, 'workers':workers_data})
+        if workers_data:
+            stats.append({'shop':shop, 'workers':workers_data})
 
     return render(request, 'main/statistics/statistics.html', {'stats':stats, 'date_from':date_from, 'date_to':date_to})
 

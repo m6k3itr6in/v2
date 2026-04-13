@@ -30,39 +30,45 @@
     </div>
 
     <div class="shops">
-        {% for row in stats %}
-            {% if row.workers %}
-                <div class="mt-5 mb-3 d-flex justify-content-between align-items-baseline">
-                    <h3 class="m-0">{{ row.shop.name }}</h3>
-                    <span class="badge bg-light text-dark border">Ставка: {{ row.shop.hourly_rate }}</span>
-                </div>
-                
-                <div class="schedule-container">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Работник</th>
-                                <th>Ставка</th>
-                                <th>Смен</th>
-                                <th>Расшифровка</th>
-                                <th>Итого</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for w in row.workers %}
+        {% if stats %}
+            {% for row in stats %}
+                {% if row.workers %}
+                    <div class="mt-5 mb-3 d-flex justify-content-between align-items-baseline">
+                        <h3 class="m-0">{{ row.shop.name }}</h3>
+                        <span class="badge bg-light text-dark border">Ставка: {{ row.shop.hourly_rate }}</span>
+                    </div>
+                    
+                    <div class="schedule-container">
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td class="fw-bold">{{ w.worker.name }}</td>
-                                    <td>{{ w.rate }}</td>
-                                    <td>{{ w.shifts_count }}</td>
-                                    <td class="text-muted small">{{ w.breakdown }}</td>
-                                    <td class="fw-bold text-dark">{{ w.total_salary }}</td>
+                                    <th>Работник</th>
+                                    <th>Ставка</th>
+                                    <th>Смен</th>
+                                    <th>Расшифровка</th>
+                                    <th>Итого</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% endif %}
-        {% endfor %}
+                            </thead>
+                            <tbody>
+                                {% for w in row.workers %}
+                                    <tr>
+                                        <td class="fw-bold">{{ w.worker.name }}</td>
+                                        <td>{{ w.rate }}</td>
+                                        <td>{{ w.shifts_count }}</td>
+                                        <td class="text-muted small">{{ w.breakdown }}</td>
+                                        <td class="fw-bold text-dark">{{ w.total_salary }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <p class="text-muted">Нет данных для отображения</p>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock content %}
